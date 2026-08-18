@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     gemini_api_key: str | None = None
 
+    # Prompt compilation (mission: one budgeted prompt for a frontier model).
+    prompt_max_tokens: int = 50000
+
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
     def ensure_dirs(self) -> None:

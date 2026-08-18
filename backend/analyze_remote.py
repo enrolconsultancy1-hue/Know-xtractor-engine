@@ -58,6 +58,14 @@ def main() -> None:
     print(f"\nSaved JSON: {jp}")
     print(f"Saved prompt: {mp}")
 
+    from app.services.prompt_compiler import compile_prompt
+
+    compiled = compile_prompt(pkg, settings.prompt_max_tokens)
+    rp = out_dir / f"{slug}_rebuild_prompt.md"
+    rp.write_text(compiled.main, encoding="utf-8")
+    print(f"Saved engineered rebuild prompt: {rp}")
+    print(f"  -> ~{compiled.total_tokens} tokens, truncated={compiled.truncated}, {len(compiled.chunks)} detail chunk(s)")
+
 
 if __name__ == "__main__":
     main()
