@@ -104,6 +104,15 @@ def git_project(tmp_path: Path) -> Path:
     return root
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _dispose_db_engine():
+    """Close the shared SQLAlchemy engine after the whole test session."""
+    yield
+    from app.db import engine
+
+    engine.dispose()
+
+
 @pytest.fixture
 def make_client(tmp_path: Path):
     """Build an app + TestClient bound to an isolated per-test SQLite DB.
@@ -119,11 +128,14 @@ def make_client(tmp_path: Path):
     from app.db import Base, get_session, models  # noqa: F401  (models registers tables)
     from app.main import create_app
 
+    engines = []
+
     def _make() -> TestClient:
         engine = create_engine(
             f"sqlite:///{tmp_path / 'api_test.db'}",
             connect_args={"check_same_thread": False},
         )
+        engines.append(engine)
         Base.metadata.create_all(bind=engine)
         testing_session = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
@@ -138,7 +150,9 @@ def make_client(tmp_path: Path):
         app.dependency_overrides[get_session] = override_get_session
         return TestClient(app)
 
-    return _make
+    yield _make
+    for engine in engines:
+        engine.dispose()
 
 
 @pytest.fixture
