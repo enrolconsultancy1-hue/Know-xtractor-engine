@@ -16,6 +16,8 @@ import threading
 import traceback
 from collections.abc import Callable
 
+from app.core.config import get_settings
+
 
 class Job:
     """A queued unit of work with observable state and cooperative cancellation."""
@@ -93,4 +95,4 @@ class AnalysisQueue:
 
 # Singleton used by the runner. Swap this for an RQ/Celery-backed implementation
 # in production.
-default_queue = AnalysisQueue(max_workers=1)
+default_queue = AnalysisQueue(max_workers=get_settings().max_workers)

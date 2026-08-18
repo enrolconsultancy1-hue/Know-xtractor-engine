@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     app_name: str = "KNOX"
     version: str = "0.1.0"
     api_prefix: str = "/api"
+    environment: str = "development"  # development | production
 
     # Storage
     data_dir: Path = Path("data")
@@ -46,6 +47,21 @@ class Settings(BaseSettings):
         """Create runtime directories if missing."""
         for d in (self.data_dir, self.workspace_dir, self.packages_dir, self.exports_dir):
             Path(d).mkdir(parents=True, exist_ok=True)
+
+    def validate_production(self) -> list[str]:
+        """Return a list of production-config problems (empty when valid).
+
+        In production we fail fast on settings that would be unsafe or
+        silently lossy (SQLite, wildcard CORS).
+        """
+        problems: list[str] = []
+        if self.environment != "production":
+            return problems
+        if self.database_url.startswith("sqlite"):
+            problems.append("KNOX_DATABASE_URL must point at a non-SQLite database in production")
+        if "*" in self.cors_origins:
+            problems.append("KNOX_CORS_ORIGINS must be an explicit allowlist (no '*') in production")
+        return problems
 
 
 _settings: Settings | None = None

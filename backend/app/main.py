@@ -2,18 +2,32 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.logging import setup_logging
 from app.db import init_db
 
 setup_logging()
 
 
+def _validate_production_config(settings: Settings) -> None:
+    problems = settings.validate_production()
+    if not problems:
+        return
+    logger = logging.getLogger(__name__)
+    for p in problems:
+        logger.error("production config error: %s", p)
+    if settings.environment == "production":
+        raise RuntimeError("Invalid production configuration:\n- " + "\n- ".join(problems))
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
+    _validate_production_config(settings)
     app = FastAPI(
         title=settings.app_name,
         version=settings.version,

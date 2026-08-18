@@ -8,6 +8,7 @@ implement the same ``AnalysisQueue`` interface and swap the singleton.
 
 from __future__ import annotations
 
+import concurrent.futures
 import contextlib
 import json
 import threading
@@ -85,11 +86,22 @@ def _execute(project_id: int, url: str, branch: str, commit_ref: str | None, run
             _emit(run_id, stage, pct, message)
             job.set_progress(stage, pct)
 
+        # Soft timeout: the in-process worker can't be force-killed, so on
+        # timeout we mark the run failed and let the orphaned thread drain.
+        # Hard isolation comes from the RQ worker pool (Phase 3).
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(pipeline.run, ctx, progress)
         try:
-            pkg = pipeline.run(ctx, progress)
+            pkg = future.result(timeout=settings.analysis_timeout_seconds)
+        except TimeoutError:
+            _finish(db, run_id, "failed",
+                    errors=[f"Analysis timed out after {settings.analysis_timeout_seconds}s"])
+            return
         except Exception as exc:  # noqa: BLE001
             _finish(db, run_id, "failed", errors=[f"{type(exc).__name__}: {exc}", *ctx.errors, *ctx.warnings])
             return
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
 
         if job.cancel_requested:
             _finish(db, run_id, "cancelled", summary={})
