@@ -60,7 +60,7 @@ _TEXT_EXTENSIONS = {
     ".cfg", ".conf", ".json", ".xml", ".html", ".htm", ".css", ".scss",
     ".sass", ".less", ".vue", ".svelte", ".sql", ".graphql", ".gql",
     ".proto", ".env", ".dockerfile", ".makefile", ".mk", ".cmake",
-    ".tf", ".yml", ".gradle", ".properties", ".lock",
+    ".tf", ".gradle", ".properties", ".lock",
 }
 
 _GENERATED_MARKERS = (
@@ -121,9 +121,7 @@ def classify_file(path: Path, size: int) -> tuple[FileCategory, str, bool]:
     # Category inference.
     if ext in {".md", ".markdown", ".rst"} or lower in {"readme", "readme.md"}:
         category = FileCategory.DOC
-    elif lower in {"dockerfile"} or ext in {".yml", ".yaml", ".toml", ".ini", ".cfg", ".conf", ".env"}:
-        category = FileCategory.CONFIG
-    elif name in {"requirements.txt", "package.json", "go.mod", "go.sum", "cargo.toml",
+    elif lower in {"dockerfile"} or ext in {".yml", ".yaml", ".toml", ".ini", ".cfg", ".conf", ".env"} or name in {"requirements.txt", "package.json", "go.mod", "go.sum", "cargo.toml",
                   "pom.xml", "build.gradle", "pyproject.toml", "setup.py", "gemfile",
                   "composer.json", "pubspec.yaml"}:
         category = FileCategory.CONFIG

@@ -79,7 +79,7 @@ class PythonAnalyzer(BaseAnalyzer):
         for node in tree.body:
             if isinstance(node, ast.ClassDef):
                 module.symbols.append(self._class_symbol(node, rel))
-            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
                 module.symbols.append(self._func_symbol(node, rel, SymbolKind.FUNCTION))
 
         return module
@@ -88,7 +88,7 @@ class PythonAnalyzer(BaseAnalyzer):
         bases = [self._name(b) for b in node.bases]
         methods: list[Symbol] = []
         for item in node.body:
-            if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef):
                 methods.append(self._func_symbol(item, rel, SymbolKind.METHOD))
         calls = [c for m in methods for c in m.calls]
         decorators = [self._name(d) for d in node.decorator_list]

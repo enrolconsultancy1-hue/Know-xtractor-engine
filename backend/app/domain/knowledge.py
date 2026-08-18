@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -62,12 +62,12 @@ class KnowledgePackage(BaseModel):
     )
 
     @classmethod
-    def new(cls, repository: str, source_url: str = "") -> "KnowledgePackage":
+    def new(cls, repository: str, source_url: str = "") -> KnowledgePackage:
         return cls(
             metadata={
                 "repository": repository,
                 "source_url": source_url,
-                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "generated_at": datetime.now(UTC).isoformat(),
                 "schema_version": "1.0",
             }
         )

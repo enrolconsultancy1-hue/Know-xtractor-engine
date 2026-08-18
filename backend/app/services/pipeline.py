@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 from app.analyzers.api_analyzer import ApiAnalyzer
 from app.analyzers.base import AnalyzerRegistry, registry
@@ -13,11 +14,11 @@ from app.analyzers.dependencies import DependencyAnalyzer
 from app.analyzers.doc_analyzer import DocumentationAnalyzer
 from app.analyzers.generic import GenericAnalyzer
 from app.analyzers.inventory import FileInventory
-from app.analyzers.javascript import JavaScriptAnalyzer
 from app.analyzers.languages import LanguageDetector
 from app.analyzers.python import PythonAnalyzer
 from app.analyzers.source_graph import FileEntry, SourceGraph
 from app.analyzers.test_analyzer import TestAnalyzer
+from app.analyzers.treesitter import TreeSitterJsAnalyzer
 from app.architecture.discovery import ArchitectureDiscoverer
 from app.domain.api_model import ApiSpec
 from app.domain.architecture import ArchitectureReport
@@ -46,7 +47,7 @@ def _register_default_analyzers() -> AnalyzerRegistry:
             LanguageDetector(),
             DependencyAnalyzer(),
             PythonAnalyzer(),
-            JavaScriptAnalyzer(),
+            TreeSitterJsAnalyzer(),
             GenericAnalyzer(),
             ApiAnalyzer(),
             DataAnalyzer(),

@@ -66,12 +66,18 @@ and API endpoints.
 - **Add a language analyzer:** see `ANALYZER_GUIDE.md`.
 - **Enable AI reasoning:** set `KNOX_AI_PROVIDER` + the matching API key env var.
 - **Reset data:** delete `data/`, `analysis_workspace/`, `knowledge_packages/`.
+- **Run a migration:** `cd backend; alembic upgrade head` (new ones via
+  `alembic revision --autogenerate -m "..."`).
+- **Analyze a remote repo (no UI):** `cd backend; python analyze_remote.py <url> [branch]`.
 
 ## Limitations (documented, not hidden)
 
-- JS/TS and other non-Python languages use heuristic (regex) analysis; deep AST
-  adapters (e.g. tree-sitter) are the intended extension point.
-- The analysis runner uses in-process threads; a production deployment should
-  swap in Celery/RQ (`app/services/runner.py` is the only transport-specific module).
+- JS/TS/TSX/Vue/Svelte are parsed with tree-sitter (see
+  `app/analyzers/treesitter.py`); other non-Python languages fall back to
+  heuristic (regex) analysis.
+- The analysis runner uses an in-process FIFO queue with a worker pool
+  (`app/services/queue.py`); a production deployment can swap in Celery/RQ
+  (`app/services/runner.py` is the only transport-specific module).
 - PDF export is a simple text renderer (fpdf2); Markdown/JSON are the primary formats.
-- Database migrations use `create_all`; add Alembic for real schema evolution.
+- Database schema is managed with Alembic (`migrations/`); `create_all` is used
+  only for the demo/dev path.

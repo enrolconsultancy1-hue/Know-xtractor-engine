@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from app.domain.architecture import CustomizationRequest, ReconstructedArchitecture, TechnologyBinding
+from app.domain.architecture import (
+    CustomizationRequest,
+    ReconstructedArchitecture,
+    TechnologyBinding,
+)
 from app.domain.knowledge import KnowledgePackage
 
 

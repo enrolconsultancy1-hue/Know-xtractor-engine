@@ -32,7 +32,6 @@ class WorkflowExtractor:
         out: list[Workflow] = []
         for ep in self.api.endpoints:
             steps: list[WorkflowStep] = []
-            step_id = 0
             steps.append(WorkflowStep(
                 id="trigger", name=f"{ep.method.upper()} {ep.path}",
                 kind="trigger", component_id=ep.handler,
@@ -110,7 +109,7 @@ class WorkflowExtractor:
         seen: set[str] = set()
         out: list[str] = []
         for i in items:
-            if i not in seen and i.strip() and not re.match(r"^[\w]+$", i) is False:
+            if i not in seen and i.strip() and re.match(r"^[\w]+$", i) is not False:
                 seen.add(i)
                 out.append(i)
         return out

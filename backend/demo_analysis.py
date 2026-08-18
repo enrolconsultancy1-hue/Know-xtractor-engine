@@ -6,7 +6,6 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app.services.pipeline import AnalysisPipeline, PipelineContext
-from app.services.exporter import export_package
 
 TARGET = r"C:\Users\HP\Projects\knox"
 
@@ -62,7 +61,6 @@ def main() -> None:
         print(f"  {b.concern}: {b.selected}")
 
     # Export.
-    out = export_package(pkg, "markdown", pkg.exports_dir if hasattr(pkg, "exports_dir") else None) if False else None
     spec = pkg.implementation_specification
     prompt = spec.to_prompt("knox")
     print("\n=== IMPLEMENTATION PROMPT (first 600 chars) ===")

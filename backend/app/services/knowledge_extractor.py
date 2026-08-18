@@ -7,7 +7,6 @@ from typing import Any
 from app.architecture.reconstruction import reconstruct_architecture
 from app.domain.api_model import ApiSpec
 from app.domain.architecture import ArchitectureReport
-from app.domain.common import Confidence
 from app.domain.component import Component
 from app.domain.data_model import DataModel
 from app.domain.implementation import ImplementationSpec

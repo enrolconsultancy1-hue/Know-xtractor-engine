@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_session
 from app.db.models import AnalysisRun, Project
-from app.services.runner import run_state, start_analysis
+from app.services.runner import start_analysis
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -103,11 +103,14 @@ def reanalyze_project(project_id: int, body: AnalyzeRequest, session: Session = 
 
 @router.post("/{project_id}/cancel")
 def cancel_project(project_id: int, session: Session = Depends(get_session)) -> dict:
+    from app.services.runner import cancel_analysis
+
     runs = session.scalars(
         select(AnalysisRun).where(AnalysisRun.project_id == project_id).order_by(AnalysisRun.id.desc())
     ).all()
     for r in runs:
         if r.status in ("running", "pending"):
+            cancel_analysis(r.id)
             r.status = "cancelled"
             r.stage = "cancelled"
     session.commit()

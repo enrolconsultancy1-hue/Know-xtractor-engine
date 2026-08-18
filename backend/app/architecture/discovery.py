@@ -78,18 +78,20 @@ class ArchitectureDiscoverer:
                 ],
             ))
 
-        micro_score = self._score([
-            has_background,
-            self._has_message_broker(),
-            module_count > 30,
-            len(entry_points) > 3,
-        ])
-        if micro_score > 0.4:
+        # Microservices: require multiple independent deployable service roots.
+        # (A monolith with background jobs or example apps is NOT microservices.)
+        service_roots = self._count_service_roots()
+        if service_roots >= 2:
+            micro_score = self._score([
+                has_background or self._has_message_broker(),
+                module_count > 40,
+                True,
+            ])
             patterns.append(ArchitecturePattern(
                 name="Microservices", confidence=micro_score,
                 evidence=[
-                    "background workers" if has_background else "",
-                    "message broker" if self._has_message_broker() else "",
+                    f"{service_roots} independent service root(s)",
+                    "message broker" if self._has_message_broker() else "background processing",
                 ],
             ))
 
@@ -136,6 +138,30 @@ class ArchitectureDiscoverer:
     def _has_message_broker(self) -> bool:
         infra = {t.name.lower() for t in self.stack.infrastructure}
         return any(k in infra for k in ("rabbitmq", "kafka", "celery"))
+
+    _SERVICE_EXCLUDED_TOP_DIRS = {
+        "examples", "example", "tests", "test", "docs", "doc", "tools",
+        "scripts", "benchmarks", "benchmark", "contrib", "migrations",
+    }
+    _ENTRYPOINT_FILES = {
+        "main.py", "app.py", "manage.py", "run.py", "index.py",
+        "wsgi.py", "asgi.py", "server.py",
+    }
+
+    def _count_service_roots(self) -> int:
+        """Count distinct top-level dirs containing an entry point (excluding
+        example/test/docs trees). A real microservices repo has >= 2."""
+        roots: set[str] = set()
+        for path in self.graph.modules:
+            parts = path.split("/")
+            if len(parts) < 2:
+                continue
+            top = parts[0].lower()
+            if top in self._SERVICE_EXCLUDED_TOP_DIRS:
+                continue
+            if parts[-1].lower() in self._ENTRYPOINT_FILES:
+                roots.add(top)
+        return len(roots)
 
     @staticmethod
     def _score(flags: list[bool]) -> float:

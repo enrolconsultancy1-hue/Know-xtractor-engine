@@ -1,22 +1,27 @@
-"""Background analysis runner with in-process live progress tracking.
+"""Analysis runner backed by a pluggable job queue.
 
-For a single-process deployment this is sufficient. A production deployment
-would move this to Celery/RQ; the pipeline itself is transport-agnostic.
+Submitting an analysis enqueues a job on ``services.queue.default_queue``
+(an in-process FIFO queue with a worker pool). The pipeline is unchanged;
+only the execution transport lives here. To move to RQ/Celery in production,
+implement the same ``AnalysisQueue`` interface and swap the singleton.
 """
 
 from __future__ import annotations
 
+import contextlib
+import json
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from app.core.config import get_settings
 from app.db import SessionLocal
-from app.db.models import AnalysisRun, Project
+from app.db.models import AnalysisRun
 from app.services.acquisition import AcquisitionError, acquire_repository
 from app.services.exporter import export_package
 from app.services.pipeline import AnalysisPipeline, PipelineContext
+from app.services.queue import Job, default_queue
 
 _runs: dict[int, dict[str, Any]] = {}
 _lock = threading.Lock()
@@ -40,8 +45,7 @@ def _emit(run_id: int, stage: str, pct: float, message: str) -> None:
 
 
 def start_analysis(project_id: int, url: str, branch: str = "main", commit_ref: str | None = None) -> int:
-    """Create an AnalysisRun and start a background thread."""
-    settings = get_settings()
+    """Create an AnalysisRun row and enqueue the analysis job."""
     session = SessionLocal()
     try:
         run = AnalysisRun(project_id=project_id, status="pending", stage="queued")
@@ -52,55 +56,65 @@ def start_analysis(project_id: int, url: str, branch: str = "main", commit_ref: 
         session.close()
 
     _runs[run_id] = {
-        "status": "running", "stage": "repository_acquisition", "progress": 0.0,
+        "status": "queued", "stage": "queued", "progress": 0.0,
         "errors": [], "warnings": [], "events": [],
     }
-
-    def worker() -> None:
-        db = SessionLocal()
-        try:
-            project = db.get(Project, project_id)
-            repo_name = url.rstrip("/").split("/")[-1].removesuffix(".git")
-            workspace = settings.workspace_dir / str(project_id)
-
-            _emit(run_id, "repository_acquisition", 0.02, "Cloning repository")
-            try:
-                repo_path = acquire_repository(url, workspace, branch, commit_ref)
-            except AcquisitionError as exc:
-                _finish(db, run_id, "failed", errors=[str(exc)])
-                return
-
-            ctx = PipelineContext(
-                repository=repo_name, source_url=url, repo_path=str(repo_path),
-            )
-            pipeline = AnalysisPipeline()
-            try:
-                pkg = pipeline.run(ctx, lambda s, p, m: _emit(run_id, s, p, m))
-            except Exception as exc:  # noqa: BLE001
-                _finish(db, run_id, "failed", errors=[f"{type(exc).__name__}: {exc}",
-                                                       *ctx.errors, *ctx.warnings])
-                return
-
-            # Persist the knowledge package.
-            pkg_dir = settings.packages_dir
-            pkg_path = pkg_dir / f"project_{project_id}.json"
-            pkg_path.write_text(pkg.model_dump_json(indent=2), encoding="utf-8")
-            try:
-                export_package(pkg, "markdown", settings.exports_dir)
-            except Exception:  # noqa: BLE001
-                pass
-
-            summary = pkg.stats()
-            summary["package_path"] = str(pkg_path)
-            _finish(db, run_id, "done", summary=summary, warnings=list(ctx.warnings))
-        except Exception as exc:  # noqa: BLE001
-            _finish(db, run_id, "failed", errors=[f"{type(exc).__name__}: {exc}"])
-        finally:
-            db.close()
-
-    t = threading.Thread(target=worker, daemon=True)
-    t.start()
+    default_queue.submit(run_id, lambda job: _execute(project_id, url, branch, commit_ref, run_id, job))
     return run_id
+
+
+def _execute(project_id: int, url: str, branch: str, commit_ref: str | None, run_id: int, job: Job) -> None:
+    settings = get_settings()
+    db = SessionLocal()
+    try:
+        repo_name = url.rstrip("/").split("/")[-1].removesuffix(".git")
+        workspace = settings.workspace_dir / str(project_id)
+
+        _emit(run_id, "repository_acquisition", 0.02, "Cloning repository")
+        job.set_progress("repository_acquisition", 0.02)
+        try:
+            repo_path = acquire_repository(url, workspace, branch, commit_ref)
+        except AcquisitionError as exc:
+            _finish(db, run_id, "failed", errors=[str(exc)])
+            return
+
+        ctx = PipelineContext(repository=repo_name, source_url=url, repo_path=str(repo_path))
+        pipeline = AnalysisPipeline()
+
+        def progress(stage: str, pct: float, message: str) -> None:
+            _emit(run_id, stage, pct, message)
+            job.set_progress(stage, pct)
+
+        try:
+            pkg = pipeline.run(ctx, progress)
+        except Exception as exc:  # noqa: BLE001
+            _finish(db, run_id, "failed", errors=[f"{type(exc).__name__}: {exc}", *ctx.errors, *ctx.warnings])
+            return
+
+        if job.cancel_requested:
+            _finish(db, run_id, "cancelled", summary={})
+            return
+
+        # Persist the knowledge package.
+        pkg_path = settings.packages_dir / f"project_{project_id}.json"
+        pkg_path.write_text(pkg.model_dump_json(indent=2), encoding="utf-8")
+        with contextlib.suppress(Exception):
+            export_package(pkg, "markdown", settings.exports_dir)
+
+        summary = pkg.stats()
+        summary["package_path"] = str(pkg_path)
+        _finish(db, run_id, "done", summary=summary, warnings=list(ctx.warnings))
+    except Exception as exc:  # noqa: BLE001
+        _finish(db, run_id, "failed", errors=[f"{type(exc).__name__}: {exc}"])
+    finally:
+        db.close()
+
+
+def cancel_analysis(run_id: int) -> bool:
+    """Request cooperative cancellation of a queued/running job."""
+    default_queue.cancel(run_id)
+    _update(run_id, status="cancelled", stage="cancelled")
+    return True
 
 
 def _finish(db, run_id: int, status: str, summary: dict | None = None,
@@ -110,7 +124,7 @@ def _finish(db, run_id: int, status: str, summary: dict | None = None,
         run.status = status
         run.stage = status
         run.progress = 1.0
-        run.finished_at = datetime.now(timezone.utc)
+        run.finished_at = datetime.now(UTC)
         run.errors = errors or []
         run.warnings = warnings or []
         run.summary = summary or {}
@@ -121,11 +135,8 @@ def _finish(db, run_id: int, status: str, summary: dict | None = None,
 
 def load_package(project_id: int) -> dict[str, Any] | None:
     """Load a previously stored knowledge package for a project."""
-    settings = get_settings()
-    path = settings.packages_dir / f"project_{project_id}.json"
+    path = get_settings().packages_dir / f"project_{project_id}.json"
     if path.exists():
-        import json
-
         return json.loads(path.read_text(encoding="utf-8"))
     return None
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from app.analyzers.base import BaseAnalyzer
 from app.analyzers.source_graph import FileEntry, SourceGraph
@@ -152,17 +151,24 @@ class LanguageDetector(BaseAnalyzer):
         return "\n".join(chunks)
 
     def _any_marker(self, markers: list[str], files: list[FileEntry], text: str) -> bool:
+        text_lower = text.lower()
         for m in markers:
-            if m.startswith(".") or "/" in m or "\\" in m or "." in m and m.endswith((".yaml", ".yml", ".csproj", ".tf")):
-                # file/path marker
-                if any(m in f.path or f.path.endswith(m) or f.path.split("/")[-1] == m for f in files):
-                    return True
-            if m.lower() in text.lower():
+            is_path_marker = (
+                m.startswith(".")
+                or "/" in m
+                or "\\" in m
+                or ("." in m and m.endswith((".yaml", ".yml", ".csproj", ".tf")))
+            )
+            # file/path marker
+            if is_path_marker and any(
+                m in f.path or f.path.endswith(m) or f.path.split("/")[-1] == m for f in files
+            ):
+                return True
+            if m.lower() in text_lower:
                 return True
             # Also scan filenames for extension markers (.jsx etc).
-            if m.startswith("."):
-                if any(f.path.endswith(m) for f in files):
-                    return True
+            if m.startswith(".") and any(f.path.endswith(m) for f in files):
+                return True
         return False
 
     def _marker_file(self, markers: list[str], files: list[FileEntry]) -> str:

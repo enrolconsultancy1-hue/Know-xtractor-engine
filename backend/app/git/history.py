@@ -44,7 +44,7 @@ class GitHistory:
         if not self.is_repo:
             return []
         out = self._run(["show", "--name-only", "--pretty=format:", sha])
-        return [l.strip() for l in out.splitlines() if l.strip()]
+        return [line.strip() for line in out.splitlines() if line.strip()]
 
     def branches(self) -> list[str]:
         if not self.is_repo:

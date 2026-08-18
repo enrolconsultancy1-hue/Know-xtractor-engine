@@ -125,7 +125,7 @@ class ConfigAnalyzer(BaseAnalyzer):
         if category:
             result["secret_required"].append(key)
         elif isinstance(value, dict):
-            result["keys"][key] = {str(k): "<value>" for k in value.keys()}
+            result["keys"][key] = {str(k): "<value>" for k in value}
         elif isinstance(value, list):
             result["keys"][key] = "<list>"
         else:
