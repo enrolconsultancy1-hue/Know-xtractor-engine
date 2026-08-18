@@ -131,7 +131,7 @@ def _objective(topic: str) -> str:
 
 
 def _changes(cluster: list[CommitInfo]) -> list[str]:
-    c = Counter()
+    c: Counter[str] = Counter()
     for commit in cluster:
         topic = _topic_of(commit.message, [])
         c[topic] += 1

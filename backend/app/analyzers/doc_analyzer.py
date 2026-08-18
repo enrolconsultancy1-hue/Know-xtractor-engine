@@ -25,7 +25,7 @@ class DocumentationAnalyzer(BaseAnalyzer):
         return any(f.category.value == "doc" for f in files)
 
     def analyze(self, root: str, files: list[FileEntry], graph: SourceGraph, ctx: dict) -> dict[str, Any]:
-        stack: TechnologyStack = ctx.get("technologies")
+        stack: TechnologyStack = ctx.get("technologies") or TechnologyStack()
         result: dict[str, Any] = {
             "files": [],
             "claims": [],

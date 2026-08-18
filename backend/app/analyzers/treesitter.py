@@ -73,7 +73,7 @@ class TreeSitterJsAnalyzer(BaseAnalyzer):
             return module
         grammar = _GRAMMAR_BY_LANG.get(language, "javascript")
         try:
-            parser = get_parser(grammar)
+            parser = get_parser(grammar)  # type: ignore[arg-type]  # dynamic but validated language key
             tree = parser.parse(source.encode("utf-8"))
         except Exception as exc:  # noqa: BLE001
             module.errors.append(f"tree-sitter error: {exc}")

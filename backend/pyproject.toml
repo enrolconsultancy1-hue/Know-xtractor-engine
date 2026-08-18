@@ -11,6 +11,7 @@ python_version = "3.11"
 strict = false
 ignore_missing_imports = true
 warn_unused_ignores = false
+disable_error_code = ["import-untyped"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -39,6 +39,12 @@ class AnalyzerRegistry:
     def get(self, name: str) -> BaseAnalyzer | None:
         return self._analyzers.get(name)
 
+    def require(self, name: str) -> BaseAnalyzer:
+        analyzer = self._analyzers.get(name)
+        if analyzer is None:
+            raise KeyError(f"Analyzer not registered: {name}")
+        return analyzer
+
     def select(self, files: list[FileEntry]) -> list[BaseAnalyzer]:
         """Return analyzers that apply to the given inventory."""
         return [a for a in self._analyzers.values() if a.applicable(files)]

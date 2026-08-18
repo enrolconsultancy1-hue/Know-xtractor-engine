@@ -62,8 +62,8 @@ def to_markdown(pkg: KnowledgePackage) -> str:
         lines.append(f"- [{f.kind.upper()}] ({f.confidence:.2f}) {f.fact}")
 
     lines.append("\n## Risks")
-    for r in pkg.risks:
-        lines.append(f"- {r}")
+    for risk in pkg.risks:
+        lines.append(f"- {risk}")
 
     lines.append("\n## Implementation Specification")
     lines.append(pkg.implementation_specification.to_prompt(pkg.metadata.get("repository", "project")))

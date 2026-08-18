@@ -11,7 +11,7 @@ from app.analyzers.source_graph import FileEntry, SourceGraph
 from app.domain.common import Confidence
 from app.domain.technology import DependencyInfo, TechnologyKind
 
-_PURPOSE_BY_NAME: dict[str, tuple[str, str]] = {
+_PURPOSE_BY_NAME: dict[str, tuple[str, str, str]] = {
     "fastapi": ("HTTP API framework", "api", "critical"),
     "flask": ("HTTP API framework", "api", "critical"),
     "django": ("Web framework", "application", "critical"),

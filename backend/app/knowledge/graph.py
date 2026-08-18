@@ -43,8 +43,8 @@ class KnowledgeGraph:
             nid = comp.id
             nodes.append({"id": nid, "type": "Component", "label": comp.name})
             edges.append({"source": "project", "target": nid, "relation": "CONTAINS"})
-            for dep in comp.dependencies:
-                edges.append({"source": nid, "target": dep, "relation": "DEPENDS_ON"})
+            for dep_name in comp.dependencies:
+                edges.append({"source": nid, "target": dep_name, "relation": "DEPENDS_ON"})
 
         # Data entities.
         for ent in self.pkg.data_model.entities:
@@ -85,7 +85,7 @@ class KnowledgeGraph:
         out: list[dict[str, Any]] = []
         for it in items:
             k = it.get(key)
-            if k not in seen:
+            if k is not None and k not in seen:
                 seen.add(k)
                 out.append(it)
         return out

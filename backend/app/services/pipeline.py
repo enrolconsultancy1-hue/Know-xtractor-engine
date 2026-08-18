@@ -104,7 +104,7 @@ class AnalysisPipeline:
 
         # 2. Language detection.
         cb("language_detection", 0.15, "Detecting languages and technologies")
-        ctx.stack = self.registry.get("languages").analyze(ctx.repo_path, inventory, ctx.graph, {})
+        ctx.stack = self.registry.require("languages").analyze(ctx.repo_path, inventory, ctx.graph, {})
 
         # 3. Static analysis (source parsing).
         cb("static_analysis", 0.30, "Parsing source code (AST)")
@@ -121,18 +121,18 @@ class AnalysisPipeline:
 
         # 4. Dependency analysis.
         cb("dependency_analysis", 0.45, "Analyzing dependencies")
-        if self.registry.get("dependencies").applicable(inventory):
-            ctx.stack.dependencies = self.registry.get("dependencies").analyze(
+        if self.registry.require("dependencies").applicable(inventory):
+            ctx.stack.dependencies = self.registry.require("dependencies").analyze(
                 ctx.repo_path, inventory, ctx.graph, analyzer_ctx
             )
 
         # 5. API + data + config + tests + docs.
         cb("api_discovery", 0.55, "Discovering APIs and data model")
-        ctx.apis = self.registry.get("api").analyze(ctx.repo_path, inventory, ctx.graph, analyzer_ctx)
-        ctx.data_model = self.registry.get("data").analyze(ctx.repo_path, inventory, ctx.graph, analyzer_ctx)
-        ctx.config = self.registry.get("config").analyze(ctx.repo_path, inventory, ctx.graph, analyzer_ctx)
-        ctx.tests = self.registry.get("tests").analyze(ctx.repo_path, inventory, ctx.graph, analyzer_ctx)
-        ctx.docs = self.registry.get("docs").analyze(ctx.repo_path, inventory, ctx.graph, analyzer_ctx)
+        ctx.apis = self.registry.require("api").analyze(ctx.repo_path, inventory, ctx.graph, analyzer_ctx)
+        ctx.data_model = self.registry.require("data").analyze(ctx.repo_path, inventory, ctx.graph, analyzer_ctx)
+        ctx.config = self.registry.require("config").analyze(ctx.repo_path, inventory, ctx.graph, analyzer_ctx)
+        ctx.tests = self.registry.require("tests").analyze(ctx.repo_path, inventory, ctx.graph, analyzer_ctx)
+        ctx.docs = self.registry.require("docs").analyze(ctx.repo_path, inventory, ctx.graph, analyzer_ctx)
 
         # 6. Component discovery.
         ctx.components = ComponentExtractor(ctx.graph).extract()
