@@ -12,8 +12,11 @@
 cd backend
 python -m venv .venv
 .venv\Scripts\activate          # Windows  (source .venv/bin/activate on macOS/Linux)
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # runtime + test/lint/coverage tools
 ```
+
+`requirements.txt` holds runtime-only dependencies (used by the Docker image);
+`requirements-dev.txt` adds pytest, ruff, mypy, and coverage on top of it.
 
 ## Database setup
 

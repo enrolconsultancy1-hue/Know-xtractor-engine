@@ -1,0 +1,64 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: knox
+      POSTGRES_PASSWORD: knox
+      POSTGRES_DB: knox
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U knox"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      KNOX_ENVIRONMENT: production
+      KNOX_DATABASE_URL: postgresql+psycopg://knox:knox@db:5432/knox
+      KNOX_REDIS_URL: redis://redis:6379/0
+      KNOX_QUEUE_BACKEND: rq
+      KNOX_AUTH_MODE: token
+      KNOX_API_KEY: change-me
+      KNOX_CORS_ORIGINS: "[]"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  worker:
+    build: ./backend
+    command: ["python", "-m", "app.worker"]
+    environment:
+      KNOX_ENVIRONMENT: production
+      KNOX_DATABASE_URL: postgresql+psycopg://knox:knox@db:5432/knox
+      KNOX_REDIS_URL: redis://redis:6379/0
+      KNOX_QUEUE_BACKEND: rq
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

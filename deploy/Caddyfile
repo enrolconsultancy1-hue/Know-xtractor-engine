@@ -1,0 +1,19 @@
+# Automatic-HTTPS reverse proxy for KNOX (Caddy).
+#
+# Run in front of the compose stack (e.g. as an extra Caddy container or on the
+# host). Caddy obtains and renews Let's Encrypt certificates automatically.
+#
+#   docker run -d -p 80:80 -p 443:443 -v $PWD/Caddyfile:/etc/caddy/Caddyfile \
+#       -v caddy_data:/data caddy:2
+#
+# Replace knox.example.com with your domain.
+
+knox.example.com {
+    reverse_proxy frontend:80
+    encode gzip
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+    }
+}
