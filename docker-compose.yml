@@ -3,7 +3,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: knox
-      POSTGRES_PASSWORD: knox
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: knox
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -25,11 +25,11 @@ services:
     build: ./backend
     environment:
       KNOX_ENVIRONMENT: production
-      KNOX_DATABASE_URL: postgresql+psycopg://knox:knox@db:5432/knox
+      KNOX_DATABASE_URL: postgresql+psycopg://knox:${POSTGRES_PASSWORD}@db:5432/knox
       KNOX_REDIS_URL: redis://redis:6379/0
       KNOX_QUEUE_BACKEND: rq
       KNOX_AUTH_MODE: token
-      KNOX_API_KEY: change-me
+      KNOX_API_KEY: ${KNOX_API_KEY:?set KNOX_API_KEY in .env}
       KNOX_CORS_ORIGINS: "[]"
     depends_on:
       db:
@@ -44,7 +44,7 @@ services:
     command: ["python", "-m", "app.worker"]
     environment:
       KNOX_ENVIRONMENT: production
-      KNOX_DATABASE_URL: postgresql+psycopg://knox:knox@db:5432/knox
+      KNOX_DATABASE_URL: postgresql+psycopg://knox:${POSTGRES_PASSWORD}@db:5432/knox
       KNOX_REDIS_URL: redis://redis:6379/0
       KNOX_QUEUE_BACKEND: rq
     depends_on:
