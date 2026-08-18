@@ -60,6 +60,17 @@ def assemble_knowledge(
     # Facts / inferences / hypotheses.
     pkg.facts = _build_facts(stack, architecture, components, workflows, data_model, apis, timeline)
 
+    # Hardcoded secrets surfaced as a security fact (locations only, never values).
+    source_secrets = config.get("source_secrets") or []
+    if source_secrets:
+        top = sorted(source_secrets, key=lambda s: -float(s.get("confidence", 0)))[:5]
+        pkg.facts.append(KnowledgeFact(
+            id=f"fact-{len(pkg.facts) + 1:03d}",
+            fact=f"{len(source_secrets)} hardcoded secret(s) detected in source",
+            kind="inference", confidence=0.6, category="security",
+            evidence=[{"file": s["file"], "reason": f"line {s['line']}: {s['key']}"} for s in top],
+        ))
+
     # Reconstruction + implementation spec.
     pkg.reconstructed_architecture = reconstruct_architecture(pkg)
     pkg.implementation_specification = build_implementation_spec(pkg)
@@ -197,6 +208,9 @@ def _security_notes(config: dict[str, Any]) -> list[str]:
     secrets = config.get("secret_required", [])
     if secrets:
         out.append(f"{len(secrets)} secret key(s) identified (values redacted)")
+    source_secrets = config.get("source_secrets") or []
+    if source_secrets:
+        out.append(f"{len(source_secrets)} hardcoded secret(s) flagged in source (locations only)")
     out.append("Repository code is never executed during analysis")
     return out
 

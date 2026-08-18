@@ -17,6 +17,7 @@ from app.analyzers.generic import GenericAnalyzer
 from app.analyzers.inventory import FileInventory
 from app.analyzers.languages import LanguageDetector
 from app.analyzers.python import PythonAnalyzer
+from app.analyzers.secret_scanner import SecretScanner
 from app.analyzers.source_graph import FileEntry, SourceGraph
 from app.analyzers.test_analyzer import TestAnalyzer
 from app.analyzers.treesitter import TreeSitterJsAnalyzer
@@ -55,6 +56,7 @@ def _register_default_analyzers() -> AnalyzerRegistry:
             ConfigAnalyzer(),
             TestAnalyzer(),
             DocumentationAnalyzer(),
+            SecretScanner(),
         ):
             registry.register(analyzer)
         _registered = True
@@ -113,7 +115,7 @@ class AnalysisPipeline:
         analyzers = self.registry.select(inventory)
         analyzer_ctx: dict[str, Any] = {"technologies": ctx.stack}
         for analyzer in analyzers:
-            if analyzer.name in ("languages", "dependencies", "api", "data", "config", "tests", "docs"):
+            if analyzer.name in ("languages", "dependencies", "api", "data", "config", "tests", "docs", "secrets"):
                 continue
             try:
                 analyzer.analyze(ctx.repo_path, source_files, ctx.graph, analyzer_ctx)
@@ -132,6 +134,9 @@ class AnalysisPipeline:
         ctx.apis = self.registry.require("api").analyze(ctx.repo_path, inventory, ctx.graph, analyzer_ctx)
         ctx.data_model = self.registry.require("data").analyze(ctx.repo_path, inventory, ctx.graph, analyzer_ctx)
         ctx.config = self.registry.require("config").analyze(ctx.repo_path, inventory, ctx.graph, analyzer_ctx)
+        ctx.config["source_secrets"] = self.registry.require("secrets").analyze(
+            ctx.repo_path, inventory, ctx.graph, analyzer_ctx
+        )
         ctx.tests = self.registry.require("tests").analyze(ctx.repo_path, inventory, ctx.graph, analyzer_ctx)
         ctx.docs = self.registry.require("docs").analyze(ctx.repo_path, inventory, ctx.graph, analyzer_ctx)
 
