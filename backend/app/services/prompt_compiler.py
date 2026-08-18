@@ -287,7 +287,9 @@ def _render_plan(pkg: KnowledgePackage) -> str:
     spec = pkg.implementation_specification
     out: list[str] = []
     if spec.implementation_order:
-        out.append("## Implementation Order\n\n" + "\n".join(f"{i+1}. {s}" for i, s in enumerate(spec.implementation_order)) + "\n")
+        out.append("## Implementation Order\n\n" + "\n".join(
+            f"{i + 1}. {s}" for i, s in enumerate(spec.implementation_order)
+        ) + "\n")
     if spec.acceptance_criteria:
         out.append("## Acceptance Criteria\n\n" + "\n".join(f"- {s}" for s in spec.acceptance_criteria) + "\n")
     return "\n".join(out)

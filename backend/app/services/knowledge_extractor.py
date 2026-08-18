@@ -267,18 +267,18 @@ def build_implementation_spec(pkg: KnowledgePackage) -> ImplementationSpec:
 
 def _implementation_order(pkg: KnowledgePackage) -> list[str]:
     order = [
-        "1. Project scaffold + configuration + logging",
-        "2. Domain model (entities and relationships)",
-        "3. Persistence layer (repositories / migrations)",
+        "Project scaffold + configuration + logging",
+        "Domain model (entities and relationships)",
+        "Persistence layer (repositories / migrations)",
     ]
     if pkg.apis.endpoints:
-        order.append("4. API layer (routes, schemas, validation)")
+        order.append("API layer (routes, schemas, validation)")
     if pkg.workflows:
-        order.append("5. Application services implementing the workflows")
-    order.append("6. Frontend / presentation layer")
-    order.append("7. Background jobs (if required)")
-    order.append("8. Tests (unit + integration)")
-    order.append("9. Deployment + CI/CD")
+        order.append("Application services implementing the workflows")
+    order.append("Frontend / presentation layer")
+    order.append("Background jobs (if required)")
+    order.append("Tests (unit + integration)")
+    order.append("Deployment + CI/CD")
     return order
 
 
