@@ -58,9 +58,9 @@ def test_graphql_routes():
 def test_gin_routes():
     src = 'r.GET("/ping", ping)\nr.POST("/users", createUser)\nr.Any("/any", anyHandler)'
     routes = _a()._gin_routes(src, "main.go")
-    assert ("get", "/ping", "") in routes
-    assert ("post", "/users", "") in routes
-    assert ("any", "/any", "") in routes
+    assert ("get", "/ping", "ping") in routes
+    assert ("post", "/users", "createUser") in routes
+    assert ("any", "/any", "anyHandler") in routes
 
 
 def test_spring_routes():

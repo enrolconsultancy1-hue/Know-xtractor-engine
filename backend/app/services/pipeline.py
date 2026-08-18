@@ -21,6 +21,7 @@ from app.analyzers.secret_scanner import SecretScanner
 from app.analyzers.source_graph import FileEntry, SourceGraph
 from app.analyzers.test_analyzer import TestAnalyzer
 from app.analyzers.treesitter import TreeSitterJsAnalyzer
+from app.analyzers.treesitter_general import TreeSitterGeneralAnalyzer
 from app.architecture.discovery import ArchitectureDiscoverer
 from app.domain.api_model import ApiSpec
 from app.domain.architecture import ArchitectureReport
@@ -50,6 +51,7 @@ def _register_default_analyzers() -> AnalyzerRegistry:
             DependencyAnalyzer(),
             PythonAnalyzer(),
             TreeSitterJsAnalyzer(),
+            TreeSitterGeneralAnalyzer(),
             GenericAnalyzer(),
             ApiAnalyzer(),
             DataAnalyzer(),

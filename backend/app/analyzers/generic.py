@@ -1,8 +1,10 @@
 """Generic analyzer for languages without a dedicated AST adapter.
 
 Extracts module-level structure via lightweight heuristics (imports, function
-and class declarations) so the pipeline still produces useful knowledge for
-Go, Rust, Java, C#, PHP, Ruby, etc., until a dedicated adapter is added.
+and class declarations) for Kotlin and Dart. Go, Rust, Java, C#, PHP, and Ruby
+are handled by the dedicated ``TreeSitterGeneralAnalyzer`` (which also records
+call sites), so they are intentionally excluded here to avoid overwriting the
+richer tree-sitter parse.
 """
 
 from __future__ import annotations
@@ -67,7 +69,7 @@ _PATTERNS: dict[str, dict[str, re.Pattern]] = {
 class GenericAnalyzer(BaseAnalyzer):
     name = "generic"
 
-    _SUPPORTED = {"go", "rust", "java", "csharp", "php", "ruby", "kotlin", "dart"}
+    _SUPPORTED = {"kotlin", "dart"}
 
     def applicable(self, files: list[FileEntry]) -> bool:
         return any(f.language in self._SUPPORTED for f in files)

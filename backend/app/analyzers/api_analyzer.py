@@ -53,6 +53,7 @@ _GRAPHQL_FIELD_RE = re.compile(r"^\s*(\w+)\s*(?:\([^)]*\))?\s*:")
 # Gin (Go): router.GET("/x", handler)
 _GIN_ROUTE_RE = re.compile(
     r"\.(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|Any)\(\s*\"([^\"]+)\""
+    r"(?:\s*,\s*([A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*)?))?"
 )
 
 # Spring (Java): @Get/Post/Put/Patch/DeleteMapping("/x") + class @RequestMapping("/base")
@@ -306,11 +307,11 @@ class ApiAnalyzer(BaseAnalyzer):
         return out
 
     def _gin_routes(self, source: str, path: str) -> list[tuple[str, str, str]]:
-        """Extract (verb, path, '') from Gin route registrations."""
+        """Extract (verb, path, handler) from Gin route registrations."""
         out: list[tuple[str, str, str]] = []
         for m in _GIN_ROUTE_RE.finditer(source):
             verb = m.group(1).lower() if m.group(1) != "Any" else "any"
-            out.append((verb, m.group(2), ""))
+            out.append((verb, m.group(2), m.group(3) or ""))
         return out
 
     def _spring_routes(self, source: str, path: str) -> list[tuple[str, str, str]]:
