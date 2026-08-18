@@ -1,0 +1,60 @@
+"""Application configuration via environment variables (pydantic-settings)."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """KNOX settings. All values are overridable through environment variables."""
+
+    model_config = SettingsConfigDict(env_prefix="KNOX_", env_file=".env", extra="ignore")
+
+    app_name: str = "KNOX"
+    version: str = "0.1.0"
+    api_prefix: str = "/api"
+
+    # Storage
+    data_dir: Path = Path("data")
+    workspace_dir: Path = Path("analysis_workspace")
+    packages_dir: Path = Path("knowledge_packages")
+    exports_dir: Path = Path("exports")
+    database_url: str = "sqlite:///./data/knox.db"
+
+    # Analysis limits (security + resource controls)
+    max_file_size_bytes: int = 2 * 1024 * 1024  # 2 MB per text file
+    max_files_per_analysis: int = 20_000
+    max_analysis_depth: int = 3  # 1..3; controls how much deep static analysis is done
+    clone_timeout_seconds: int = 600
+    analysis_timeout_seconds: int = 3600
+    max_workers: int = 4  # parallel analysis workers
+
+    # Git clone security
+    allow_network_clone: bool = True
+
+    # AI (optional). Leave provider unset to run fully deterministic.
+    ai_provider: str = "none"  # none | openai | anthropic | gemini
+    openai_api_key: str | None = None
+    anthropic_api_key: str | None = None
+    gemini_api_key: str | None = None
+
+    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+    def ensure_dirs(self) -> None:
+        """Create runtime directories if missing."""
+        for d in (self.data_dir, self.workspace_dir, self.packages_dir, self.exports_dir):
+            Path(d).mkdir(parents=True, exist_ok=True)
+
+
+_settings: Settings | None = None
+
+
+def get_settings() -> Settings:
+    """Return the cached settings singleton."""
+    global _settings
+    if _settings is None:
+        _settings = Settings()
+        _settings.ensure_dirs()
+    return _settings

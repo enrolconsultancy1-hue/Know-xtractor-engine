@@ -1,0 +1,15 @@
+# KNOX backend dependencies (Python 3.11+)
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.0
+sqlalchemy==2.0.36
+pyyaml==6.0.2
+python-multipart==0.0.20
+fpdf2==2.8.2
+
+# dev / quality
+pytest==8.3.4
+httpx==0.28.1
+ruff==0.8.4
+mypy==1.13.0
