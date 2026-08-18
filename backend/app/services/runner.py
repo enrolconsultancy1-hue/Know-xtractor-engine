@@ -15,10 +15,12 @@ import concurrent.futures
 import contextlib
 import json
 import threading
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from app.core import metrics
 from app.core.config import get_settings
 from app.db import SessionLocal
 from app.db.models import AnalysisRun
@@ -97,6 +99,8 @@ def execute_analysis(project_id: int, url: str, branch: str, commit_ref: str | N
                      run_id: int, job: Job | None) -> None:
     settings = get_settings()
     db = SessionLocal()
+    started = time.monotonic()
+    _update(run_id, started_monotonic=started)
     try:
         repo_name = url.rstrip("/").split("/")[-1].removesuffix(".git")
         workspace = settings.workspace_dir / str(project_id)
@@ -186,6 +190,10 @@ def _finish(db, run_id: int, status: str, summary: dict | None = None,
         db.commit()
     _update(run_id, status=status, stage=status, progress=1.0,
             errors=errors or [], warnings=warnings or [])
+    metrics.knox_analysis_runs_total.inc(labels={"status": status})
+    started = run_state(run_id).get("started_monotonic")
+    if isinstance(started, float):
+        metrics.knox_analysis_duration_seconds.observe(time.monotonic() - started)
 
 
 def load_package(project_id: int) -> dict[str, Any] | None:

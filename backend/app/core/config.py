@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     api_prefix: str = "/api"
     environment: str = "development"  # development | production
 
+    # Observability (Phase 4)
+    log_format: str = "text"           # text | json
+    log_level: str = "INFO"
+    stale_workspace_max_age_days: int = 7
+
     # Auth (Phase 2). token = shared bearer key; users/JWT is a future extension.
     auth_mode: str = "none"  # none | token
     api_key: str | None = None

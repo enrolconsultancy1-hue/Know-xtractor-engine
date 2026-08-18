@@ -41,5 +41,12 @@ class RQQueue:
     def pending_count(self) -> int:
         return len(self._queue.get_jobs())
 
+    def ping(self) -> bool:
+        """Return True if the Redis connection responds to PING."""
+        try:
+            return bool(self._queue.connection.ping())
+        except Exception:  # noqa: BLE001
+            return False
+
 
 rq_queue = RQQueue()

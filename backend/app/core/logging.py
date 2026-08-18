@@ -1,4 +1,4 @@
-"""Structured logging setup."""
+"""Logging setup: human-readable text or structured JSON, with correlation IDs."""
 
 from __future__ import annotations
 
@@ -7,9 +7,13 @@ import logging
 import sys
 from datetime import UTC, datetime
 
+from app.core.context import request_id_var
+
+_TEXT_FORMAT = "%(asctime)s %(levelname)-8s %(name)s %(message)s"
+
 
 class JsonFormatter(logging.Formatter):
-    """Emit structured JSON log lines."""
+    """Emit one JSON object per log line."""
 
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, object] = {
@@ -18,6 +22,9 @@ class JsonFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
+        request_id = request_id_var.get()
+        if request_id:
+            payload["request_id"] = request_id
         extra = getattr(record, "extra_fields", None)
         if isinstance(extra, dict):
             payload.update(extra)
@@ -26,15 +33,21 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, default=str)
 
 
-def setup_logging(level: int = logging.INFO) -> None:
-    """Configure the root logger."""
+def setup_logging() -> None:
+    """Configure the root logger from KNOX_LOG_FORMAT / KNOX_LOG_LEVEL."""
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    level = getattr(logging, settings.log_level.upper(), logging.INFO)
     root = logging.getLogger()
     root.setLevel(level)
     handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(JsonFormatter())
+    if settings.log_format == "json":
+        handler.setFormatter(JsonFormatter())
+    else:
+        handler.setFormatter(logging.Formatter(_TEXT_FORMAT))
     root.handlers = [handler]
 
 
 def get_logger(name: str) -> logging.Logger:
-    """Return a logger."""
     return logging.getLogger(name)
