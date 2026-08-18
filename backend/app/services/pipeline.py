@@ -8,6 +8,7 @@ from typing import Any
 
 from app.analyzers.api_analyzer import ApiAnalyzer
 from app.analyzers.base import AnalyzerRegistry, registry
+from app.analyzers.callgraph import CallGraph
 from app.analyzers.config_analyzer import ConfigAnalyzer
 from app.analyzers.data_analyzer import DataAnalyzer
 from app.analyzers.dependencies import DependencyAnalyzer
@@ -137,9 +138,10 @@ class AnalysisPipeline:
         # 6. Component discovery.
         ctx.components = ComponentExtractor(ctx.graph).extract()
 
-        # 7. Workflow extraction.
+        # 7. Workflow extraction (with call-graph / data-flow tracing).
         cb("workflow_extraction", 0.65, "Reconstructing workflows")
-        ctx.workflows = WorkflowExtractor(ctx.graph, ctx.apis).extract()
+        callgraph = CallGraph(ctx.graph)
+        ctx.workflows = WorkflowExtractor(ctx.graph, ctx.apis, callgraph).extract()
 
         # 8. Architecture discovery.
         cb("architecture_discovery", 0.75, "Inferring architecture")

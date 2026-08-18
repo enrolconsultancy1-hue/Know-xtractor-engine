@@ -116,6 +116,25 @@ def _build_facts(
         add(f"{len(workflows)} workflow(s) were reconstructed", "inference", 0.7,
             [{"file": w.entry_point, "reason": "entry point"} for w in workflows[:3]], "workflow")
 
+    persistence_flows = [w for w in workflows if any(s.kind == "persistence" for s in w.steps)]
+    external_flows = [w for w in workflows if any(s.kind == "external" for s in w.steps)]
+    queue_flows = [w for w in workflows if any(s.kind == "queue" for s in w.steps)]
+    if persistence_flows:
+        add(f"{len(persistence_flows)} workflow(s) reach the persistence layer", "inference", 0.7,
+            [{"file": w.entry_point, "reason": "call graph traces to database access"} for w in persistence_flows[:3]], "data")
+    if external_flows:
+        add(f"{len(external_flows)} workflow(s) call external services", "inference", 0.6,
+            [{"file": w.entry_point, "reason": "call graph traces to network access"} for w in external_flows[:3]], "integration")
+    if queue_flows:
+        add(f"{len(queue_flows)} workflow(s) enqueue background work", "inference", 0.6,
+            [{"file": w.entry_point, "reason": "call graph traces to a message broker"} for w in queue_flows[:3]], "integration")
+
+    sample = next((w for w in workflows if len(w.steps) >= 3), None)
+    if sample:
+        chain = " -> ".join(s.name for s in sample.steps[:8])
+        add(f"Request lifecycle: {chain}", "inference", 0.6,
+            [{"file": sample.entry_point, "reason": "recursive call-graph trace"}], "workflow")
+
     if timeline.sprints:
         add(f"{len(timeline.sprints)} architectural sprint(s) identified", "inference", 0.6,
             [{"file": "git", "reason": "commit clustering"}], "evolution")

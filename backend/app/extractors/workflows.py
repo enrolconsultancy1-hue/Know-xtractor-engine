@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import re
-
+from app.analyzers.callgraph import CallGraph, CallKind
 from app.analyzers.source_graph import SourceGraph, Symbol
 from app.domain.api_model import ApiSpec
 from app.domain.common import Confidence, Evidence
@@ -15,12 +14,15 @@ _ENTRYPOINT_FILES = {"main.py", "app.py", "index.py", "manage.py", "run.py", "cl
 class WorkflowExtractor:
     """Builds workflow graphs from API endpoints and entry-point call chains."""
 
-    def __init__(self, graph: SourceGraph, api_spec: ApiSpec) -> None:
+    def __init__(self, graph: SourceGraph, api_spec: ApiSpec, callgraph: CallGraph | None = None) -> None:
         self.graph = graph
         self.api = api_spec
+        self.callgraph = callgraph
         self._symbol_index: dict[str, Symbol] = {}
+        self._by_id: dict[str, Symbol] = {}
         for sym in graph.all_symbols():
             self._symbol_index[sym.name] = sym
+            self._by_id[f"{sym.path}:{sym.name}"] = sym
 
     def extract(self) -> list[Workflow]:
         workflows: list[Workflow] = []
@@ -38,8 +40,18 @@ class WorkflowExtractor:
                 description="Incoming HTTP request",
             ))
             prev = "trigger"
-            handler = self._symbol_index.get(ep.handler)
-            if handler:
+            handler = self._by_id.get(f"{ep.file}:{ep.handler}") or self._symbol_index.get(ep.handler)
+            if handler and self.callgraph is not None:
+                trace = self.callgraph.trace(CallGraph.symbol_id(handler))
+                for i, (label, kind, _depth) in enumerate(trace[:12]):
+                    sid = f"step{i}"
+                    steps.append(WorkflowStep(
+                        id=sid, name=label, kind=self._step_kind(kind),
+                        component_id=label, dependencies=[prev],
+                        description=f"Data-flow: {kind.value}",
+                    ))
+                    prev = sid
+            elif handler:
                 for i, call in enumerate(self._distinct(handler.calls)[:8]):
                     sid = f"step{i}"
                     steps.append(WorkflowStep(
@@ -109,7 +121,19 @@ class WorkflowExtractor:
         seen: set[str] = set()
         out: list[str] = []
         for i in items:
-            if i not in seen and i.strip() and re.match(r"^[\w]+$", i) is not False:
+            if i not in seen and i.strip():
                 seen.add(i)
                 out.append(i)
         return out
+
+    @staticmethod
+    def _step_kind(kind: CallKind) -> str:
+        if kind is CallKind.PERSISTENCE:
+            return "persistence"
+        if kind is CallKind.EXTERNAL:
+            return "external"
+        if kind is CallKind.QUEUE:
+            return "queue"
+        if kind is CallKind.CACHE:
+            return "cache"
+        return "transform"
