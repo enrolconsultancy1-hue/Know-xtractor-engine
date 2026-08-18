@@ -33,6 +33,20 @@ def test_classify_call():
     assert classify_call("util.format") is CallKind.UNKNOWN
 
 
+def test_classify_call_cross_language():
+    # Go / Java / C# / Ruby / PHP persistence + external markers.
+    assert classify_call("db.Query") is CallKind.PERSISTENCE
+    assert classify_call("sql.Open") is CallKind.PERSISTENCE
+    assert classify_call("gorm.DB.Find") is CallKind.PERSISTENCE
+    assert classify_call("jdbcTemplate.query") is CallKind.PERSISTENCE
+    assert classify_call("repository.findByName") is CallKind.PERSISTENCE
+    assert classify_call("http.Get") is CallKind.EXTERNAL
+    assert classify_call("httpClient.GetAsync") is CallKind.EXTERNAL
+    assert classify_call("restTemplate.getForObject") is CallKind.EXTERNAL
+    assert classify_call("kafka.Publish") is CallKind.QUEUE
+    assert classify_call("redis.Get") is CallKind.CACHE
+
+
 def test_trace_reaches_persistence_through_internal_calls():
     g = _graph(
         SourceModule(path="api.py", language="python", symbols=[

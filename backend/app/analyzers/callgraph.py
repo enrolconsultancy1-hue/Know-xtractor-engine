@@ -36,17 +36,22 @@ _PERSISTENCE_MARKERS = (
     "session.scalars", ".objects.", ".query", ".execute", ".executemany",
     ".commit", ".rollback", "bulk_create", "get_or_create", "select_related",
     "prefetch_related", "cursor.", ".raw",
+    # Cross-language (Go/Java/C#/Ruby/PHP):
+    "db.query", "db.exec", "db.prepare", "sql.", "sqlx.", "gorm.",
+    "jdbc", "hibernate", "jdbctemplate", "repository.", ".queryrow", ".scan",
+    ".findby", ".findall",
 )
 _EXTERNAL_MARKERS = (
     "requests.", "httpx.", "urllib.", "urlopen", "aiohttp.", "axios",
-    "socket.", "grpc.",
+    "socket.", "grpc.", "http.", "httpclient", "resttemplate", "net/http",
+    "webclient", "curl",
 )
 _CACHE_MARKERS = (
-    "redis", "memcached", ".cache", "get_cache", "set_cache",
+    "redis", "memcached", "memcache", ".cache", "get_cache", "set_cache",
 )
 _QUEUE_MARKERS = (
-    "celery", "kafka", "rabbitmq", "enqueue", "publish", "send_task",
-    "dramatiq", "apply_async", ".delay", "rq.",
+    "celery", "kafka", "rabbitmq", "rabbit", "amqp", "nsq", "pulsar",
+    "enqueue", "publish", "send_task", "dramatiq", "apply_async", ".delay", "rq.",
 )
 
 

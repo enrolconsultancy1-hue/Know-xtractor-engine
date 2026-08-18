@@ -18,6 +18,21 @@ _SQLALCHEMY_TYPES = {
     "Enum": "enum", "LargeBinary": "binary",
 }
 
+# Alembic / Django migration declarations.
+_ALEMBIC_CREATE_TABLE = re.compile(r"op\.create_table\(\s*['\"]([\w]+)['\"]", re.I)
+_ALEMBIC_COLUMN = re.compile(r"sa\.Column\(\s*['\"]([\w]+)['\"]\s*,\s*sa\.([A-Za-z]+)", re.I)
+_ALEMBIC_ADD_COLUMN = re.compile(
+    r"op\.add_column\(\s*['\"]([\w]+)['\"]\s*,\s*sa\.Column\(\s*['\"]([\w]+)['\"]\s*,\s*sa\.([A-Za-z]+)", re.I
+)
+_DJANGO_CREATE_MODEL = re.compile(r"migrations\.CreateModel\(\s*name\s*=\s*['\"]([\w]+)['\"]", re.I)
+_DJANGO_FIELD = re.compile(r"\(\s*['\"]([\w]+)['\"]\s*,\s*models\.([A-Za-z]+)", re.I)
+_DJANGO_ADD_FIELD = re.compile(
+    r"migrations\.AddField\(\s*model_name\s*=\s*['\"]([\w]+)['\"]\s*,\s*name\s*=\s*['\"]([\w]+)['\"]\s*,\s*field\s*=\s*models\.([A-Za-z]+)", re.I
+)
+_ALTER_ADD_COLUMN = re.compile(
+    r"ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?[\"']?([\w.]+)[\"']?\s+ADD(?:\s+COLUMN)?\s+[\"']?(\w+)[\"']?\s+([A-Za-z0-9_()]+)", re.I
+)
+
 
 class DataAnalyzer(BaseAnalyzer):
     name = "data"
@@ -33,6 +48,7 @@ class DataAnalyzer(BaseAnalyzer):
                 continue
             if f.language == "python":
                 self._python_entities(root_path / f.path, f.path, model)
+                self._python_migrations(root_path / f.path, f.path, model)
             elif f.language == "sql":
                 self._sql_entities(root_path / f.path, f.path, model)
         # Infer relationships from foreign keys.
@@ -153,6 +169,78 @@ class DataAnalyzer(BaseAnalyzer):
                     evidence=[Evidence(file=rel, reason="CREATE TABLE statement")],
                 ))
             model.engines.append("sql")
+
+        # ALTER TABLE ... ADD COLUMN statements (columns added by migrations).
+        for m in _ALTER_ADD_COLUMN.finditer(source):
+            self._add_column(
+                model, m.group(1).split(".")[-1],
+                DataColumn(name=m.group(2), type=m.group(3).lower()),
+                rel, "sql",
+            )
+
+    def _python_migrations(self, path: Path, rel: str, model: DataModel) -> None:
+        try:
+            source = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return
+        if not source:
+            return
+        if "op.create_table" in source or "op.add_column" in source:
+            self._alembic(source, rel, model)
+        if "migrations.CreateModel" in source or "migrations.AddField" in source:
+            self._django(source, rel, model)
+
+    def _alembic(self, source: str, rel: str, model: DataModel) -> None:
+        creates = list(_ALEMBIC_CREATE_TABLE.finditer(source))
+        columns = list(_ALEMBIC_COLUMN.finditer(source))
+        add_columns = list(_ALEMBIC_ADD_COLUMN.finditer(source))
+        add_spans = [(m.start(), m.end()) for m in add_columns]
+        for i, cm in enumerate(creates):
+            table = cm.group(1)
+            end = creates[i + 1].start() if i + 1 < len(creates) else len(source)
+            cols = [
+                DataColumn(name=c.group(1), type=c.group(2).lower())
+                for c in columns
+                if cm.end() <= c.start() < end and not any(s <= c.start() < e for s, e in add_spans)
+            ]
+            self._add_entity(model, table, cols, rel, "alembic")
+        for m in add_columns:
+            self._add_column(model, m.group(1), DataColumn(name=m.group(2), type=m.group(3).lower()), rel, "alembic")
+
+    def _django(self, source: str, rel: str, model: DataModel) -> None:
+        creates = list(_DJANGO_CREATE_MODEL.finditer(source))
+        fields = list(_DJANGO_FIELD.finditer(source))
+        for i, cm in enumerate(creates):
+            name = cm.group(1)
+            end = creates[i + 1].start() if i + 1 < len(creates) else len(source)
+            cols = [
+                DataColumn(name=fm.group(1), type=fm.group(2).replace("Field", "").lower())
+                for fm in fields
+                if cm.end() <= fm.start() < end
+            ]
+            self._add_entity(model, name, cols, rel, "django_migration")
+        for m in _DJANGO_ADD_FIELD.finditer(source):
+            self._add_column(
+                model, m.group(1),
+                DataColumn(name=m.group(2), type=m.group(3).replace("Field", "").lower()),
+                rel, "django_migration",
+            )
+
+    def _add_entity(self, model: DataModel, name: str, columns: list[DataColumn], rel: str, source_kind: str) -> None:
+        existing = next((e for e in model.entities if e.name.lower() == name.lower()), None)
+        if existing is None:
+            model.entities.append(DataEntity(
+                name=name, kind="table", columns=columns, source_file=rel, source_kind=source_kind,
+                confidence=Confidence(score=0.8, rationale=f"{source_kind} schema declaration"),
+                evidence=[Evidence(file=rel, reason=f"{source_kind} schema declaration")],
+            ))
+        else:
+            for col in columns:
+                if not any(c.name == col.name for c in existing.columns):
+                    existing.columns.append(col)
+
+    def _add_column(self, model: DataModel, table: str, column: DataColumn, rel: str, source_kind: str) -> None:
+        self._add_entity(model, table, [column], rel, source_kind)
 
     @staticmethod
     def _name(node: ast.expr | None) -> str:
