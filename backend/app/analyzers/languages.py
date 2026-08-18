@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from app.analyzers.base import BaseAnalyzer
@@ -50,6 +51,8 @@ _INFRA: dict[str, list[str]] = {
     "Nginx": ["nginx"],
     "Celery": ["celery", "redis broker"],
 }
+
+_BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.S)
 
 
 class LanguageDetector(BaseAnalyzer):
@@ -140,6 +143,15 @@ class LanguageDetector(BaseAnalyzer):
     _CONFIG_EXTS = {".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".properties", ".env"}
     _DB_PATH_HINTS = ("settings", "config", "database", "db/backends", "connection", "orm")
 
+    @staticmethod
+    def _strip_comments(text: str) -> str:
+        """Strip block and full-line comments so comment mentions don't count as usage."""
+        text = _BLOCK_COMMENT_RE.sub(" ", text)
+        return "\n".join(
+            line for line in text.splitlines()
+            if not line.lstrip().startswith(("#", "//", ";"))
+        )
+
     def _collect_marker_text(self, files: list[FileEntry], root: Path) -> str:
         """Read manifests, config files, and a bounded source sample for markers."""
         chunks: list[str] = []
@@ -172,6 +184,7 @@ class LanguageDetector(BaseAnalyzer):
                 text = (root / f.path).read_text(encoding="utf-8", errors="ignore")
             except OSError:
                 continue
+            text = self._strip_comments(text)
             chunks.append(text[:20_000])
             total += min(len(text), 20_000)
             if f.category == FileCategory.SOURCE:

@@ -28,6 +28,24 @@ def test_broker_and_cache_detected_from_source(tmp_path):
     assert "Celery" in infra
 
 
+def test_comment_only_db_mention_is_ignored(tmp_path):
+    (tmp_path / "util.py").write_text(
+        "# MongoDB is not supported here, only in a comment\nvalue = 1\n", encoding="utf-8")
+    (tmp_path / "main.py").write_text("x = 1\n", encoding="utf-8")
+    files = FileInventory(str(tmp_path)).scan()
+    stack = LanguageDetector().analyze(str(tmp_path), files, SourceGraph(), {})
+    assert "MongoDB" not in {t.name for t in stack.databases}
+
+
+def test_real_db_usage_still_detected(tmp_path):
+    (tmp_path / "db.py").write_text(
+        "import pymongo\nclient = pymongo.MongoClient()\n", encoding="utf-8")
+    (tmp_path / "main.py").write_text("x = 1\n", encoding="utf-8")
+    files = FileInventory(str(tmp_path)).scan()
+    stack = LanguageDetector().analyze(str(tmp_path), files, SourceGraph(), {})
+    assert "MongoDB" in {t.name for t in stack.databases}
+
+
 def test_env_vars_extracted_from_python_source(tmp_path):
     (tmp_path / "config.py").write_text(
         "import os\nDB_URL = os.getenv('DB_URL')\nSECRET = os.environ['SECRET_KEY']\n"
