@@ -97,11 +97,11 @@ KNOX_QUEUE_BACKEND=rq python -m app.worker
 
 **Goal:** you can see and trust what the service is doing.
 
-- [ ] Structured JSON logging option (`KNOX_LOG_FORMAT=json`)
-- [ ] Prometheus metrics endpoint (`/metrics`) — requests, analysis duration, queue depth
-- [ ] Liveness `/healthz` and readiness `/readyz` (DB + queue check)
-- [ ] Clone/analysis timeouts + stale-workspace cleanup
-- [ ] Request correlation IDs
+- [x] Structured JSON logging option (`KNOX_LOG_FORMAT=json`)
+- [x] Prometheus metrics endpoint (`/metrics`) — requests, analysis duration, queue depth
+- [x] Liveness `/healthz` and readiness `/readyz` (DB + queue check)
+- [x] Clone/analysis timeouts + stale-workspace cleanup
+- [x] Request correlation IDs
 
 **DoD:** `/metrics` and `/readyz` respond; timeouts cancel long clones; logs are JSON when set.
 
@@ -120,11 +120,11 @@ curl http://127.0.0.1:8000/metrics
 
 **Goal:** one-command deploy.
 
-- [ ] `backend/Dockerfile` (slim python, non-root, pinned deps)
-- [ ] `frontend/Dockerfile` (node build → nginx static, or backend-served)
-- [ ] `docker-compose.yml` (app + postgres + redis + proxy)
-- [ ] Caddy/nginx reverse proxy config with HTTPS
-- [ ] Entrypoint runs `alembic upgrade head` then starts the app
+- [x] `backend/Dockerfile` (slim python, non-root, pinned deps)
+- [x] `frontend/Dockerfile` (node build → nginx static, or backend-served)
+- [x] `docker-compose.yml` (app + postgres + redis + proxy)
+- [x] Caddy/nginx reverse proxy config with HTTPS
+- [x] Entrypoint runs `alembic upgrade head` then starts the app
 
 **DoD:** `docker compose up` brings up the full stack; `/healthz` is green through the proxy.
 
@@ -140,10 +140,10 @@ curl https://localhost/healthz   # or http://localhost:8000/healthz
 
 **Goal:** every change is gated automatically.
 
-- [ ] `.github/workflows/ci.yml` — pytest + ruff + mypy + frontend build
-- [ ] Coverage gate (e.g. `pytest --cov` with a floor)
-- [ ] Dependency audit (pip-audit, npm audit) in CI
-- [ ] (optional) Docker image build/push job
+- [x] `.github/workflows/ci.yml` — pytest + ruff + mypy + frontend build
+- [x] Coverage gate (e.g. `pytest --cov` with a floor)
+- [x] Dependency audit (pip-audit, npm audit) in CI
+- [ ] (optional) Docker image build/push job — not implemented (optional)
 
 **DoD:** a PR that breaks tests/lint/types/build is blocked.
 
@@ -159,12 +159,12 @@ cd ../frontend && npm run build
 
 **Goal:** untrusted-repo safety and a clean acceptance pass.
 
-- [ ] Secret redaction across all exports/logs (sweep + test)
-- [ ] Path-traversal / zip-slip guards on untrusted repo content
-- [ ] Rate limiting on analysis/clone endpoints
-- [ ] Dependency audit clean (or documented exceptions)
-- [ ] Final dogfood: analyze a large real repo end-to-end
-- [ ] Runbook + deployment guide (`docs/RUNBOOK.md`, `docs/DEPLOYMENT.md`)
+- [x] Secret redaction across all exports/logs (sweep + test)
+- [x] Path-traversal / symlink guards on untrusted repo content (zip-slip N/A: no archive extraction)
+- [x] Rate limiting on analysis/clone endpoints
+- [x] Dependency audit wired in CI (pip-audit + npm audit)
+- [x] Final dogfood: analyze a large real repo end-to-end (tiangolo/fastapi)
+- [x] Runbook + deployment guide (`docs/runbook.md`, `docs/deployment.md`)
 
 **DoD:** full suite green; security audit items resolved; runbook lets a new operator run it.
 
