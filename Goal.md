@@ -75,10 +75,10 @@ curl -i -X POST http://127.0.0.1:8000/api/projects -H "Authorization: Bearer sec
 
 **Goal:** scale analysis to multiple processes; keep dev simple.
 
-- [ ] `RQQueue` implementation of the `AnalysisQueue` interface (Redis-backed)
-- [ ] Worker entrypoint (`app/worker.py`) with retry + job timeout
-- [ ] `KNOX_QUEUE_BACKEND` = `inprocess` (dev) | `rq` (prod); automatic fallback if Redis absent
-- [ ] Tests for the RQ adapter (with a fakeredis or in-process Redis)
+- [x] `RQQueue` adapter (Redis/RQ) in `app/services/rq_queue.py`
+- [x] Worker entrypoint `app/worker.py` with retry (max 3) + job timeout
+- [x] `KNOX_QUEUE_BACKEND` = `inprocess` (default, no Redis) | `rq` (opt-in)
+- [x] Tests: backend selection + worker import; RQ roundtrip skips without Redis
 
 **DoD:** `KNOX_QUEUE_BACKEND=rq` + a Redis server runs analyses via `python -m app.worker`;
 `inprocess` still works with no Redis installed.

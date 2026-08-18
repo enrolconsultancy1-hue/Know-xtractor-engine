@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     auth_mode: str = "none"  # none | token
     api_key: str | None = None
 
+    # Queue (Phase 3). inprocess (dev) | rq (Redis-backed worker pool).
+    queue_backend: str = "inprocess"
+    redis_url: str = "redis://localhost:6379/0"
+
     # Storage
     data_dir: Path = Path("data")
     workspace_dir: Path = Path("analysis_workspace")

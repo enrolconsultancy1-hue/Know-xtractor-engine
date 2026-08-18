@@ -1,9 +1,12 @@
 """Analysis runner backed by a pluggable job queue.
 
-Submitting an analysis enqueues a job on ``services.queue.default_queue``
-(an in-process FIFO queue with a worker pool). The pipeline is unchanged;
-only the execution transport lives here. To move to RQ/Celery in production,
-implement the same ``AnalysisQueue`` interface and swap the singleton.
+Submitting an analysis enqueues a serializable task on the configured backend:
+
+- ``inprocess`` (default): an in-process FIFO queue with a worker pool
+  (``services.queue.default_queue``).
+- ``rq``: a Redis/RQ queue executed by a separate ``python -m app.worker``.
+
+The analysis pipeline is unchanged; only the execution transport lives here.
 """
 
 from __future__ import annotations
@@ -46,7 +49,7 @@ def _emit(run_id: int, stage: str, pct: float, message: str) -> None:
 
 
 def start_analysis(project_id: int, url: str, branch: str = "main", commit_ref: str | None = None) -> int:
-    """Create an AnalysisRun row and enqueue the analysis job."""
+    """Create an AnalysisRun row and enqueue the analysis task."""
     session = SessionLocal()
     try:
         run = AnalysisRun(project_id=project_id, status="pending", stage="queued")
@@ -60,11 +63,29 @@ def start_analysis(project_id: int, url: str, branch: str = "main", commit_ref: 
         "status": "queued", "stage": "queued", "progress": 0.0,
         "errors": [], "warnings": [], "events": [],
     }
-    default_queue.submit(run_id, lambda job: _execute(project_id, url, branch, commit_ref, run_id, job))
+
+    task: dict[str, Any] = {
+        "project_id": project_id, "url": url, "branch": branch,
+        "commit_ref": commit_ref, "run_id": run_id,
+    }
+    if get_settings().queue_backend == "rq":
+        from app.services.rq_queue import rq_queue
+
+        rq_queue.submit(run_id, task)
+    else:
+        default_queue.submit(run_id, lambda job: execute_analysis(project_id, url, branch, commit_ref, run_id, job))
     return run_id
 
 
-def _execute(project_id: int, url: str, branch: str, commit_ref: str | None, run_id: int, job: Job) -> None:
+def run_task(task: dict[str, Any], run_id: int) -> None:
+    """Execute a serialized analysis task (called by the RQ worker)."""
+    execute_analysis(
+        task["project_id"], task["url"], task["branch"], task["commit_ref"], run_id, None,
+    )
+
+
+def execute_analysis(project_id: int, url: str, branch: str, commit_ref: str | None,
+                     run_id: int, job: Job | None) -> None:
     settings = get_settings()
     db = SessionLocal()
     try:
@@ -72,7 +93,8 @@ def _execute(project_id: int, url: str, branch: str, commit_ref: str | None, run
         workspace = settings.workspace_dir / str(project_id)
 
         _emit(run_id, "repository_acquisition", 0.02, "Cloning repository")
-        job.set_progress("repository_acquisition", 0.02)
+        if job is not None:
+            job.set_progress("repository_acquisition", 0.02)
         try:
             repo_path = acquire_repository(url, workspace, branch, commit_ref)
         except AcquisitionError as exc:
@@ -84,11 +106,12 @@ def _execute(project_id: int, url: str, branch: str, commit_ref: str | None, run
 
         def progress(stage: str, pct: float, message: str) -> None:
             _emit(run_id, stage, pct, message)
-            job.set_progress(stage, pct)
+            if job is not None:
+                job.set_progress(stage, pct)
+            _persist_progress(db, run_id, stage, pct)
 
-        # Soft timeout: the in-process worker can't be force-killed, so on
-        # timeout we mark the run failed and let the orphaned thread drain.
-        # Hard isolation comes from the RQ worker pool (Phase 3).
+        # Soft timeout (in-process workers can't be force-killed); hard
+        # isolation comes from the RQ worker's job_timeout (Phase 3).
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         future = executor.submit(pipeline.run, ctx, progress)
         try:
@@ -103,11 +126,10 @@ def _execute(project_id: int, url: str, branch: str, commit_ref: str | None, run
         finally:
             executor.shutdown(wait=False, cancel_futures=True)
 
-        if job.cancel_requested:
+        if job is not None and job.cancel_requested:
             _finish(db, run_id, "cancelled", summary={})
             return
 
-        # Persist the knowledge package.
         pkg_path = settings.packages_dir / f"project_{project_id}.json"
         pkg_path.write_text(pkg.model_dump_json(indent=2), encoding="utf-8")
         with contextlib.suppress(Exception):
@@ -124,9 +146,21 @@ def _execute(project_id: int, url: str, branch: str, commit_ref: str | None, run
 
 def cancel_analysis(run_id: int) -> bool:
     """Request cooperative cancellation of a queued/running job."""
+    if get_settings().queue_backend == "rq":
+        from app.services.rq_queue import rq_queue
+
+        rq_queue.cancel(run_id)
     default_queue.cancel(run_id)
     _update(run_id, status="cancelled", stage="cancelled")
     return True
+
+
+def _persist_progress(db, run_id: int, stage: str, pct: float) -> None:
+    run = db.get(AnalysisRun, run_id)
+    if run:
+        run.stage = stage
+        run.progress = pct
+        db.commit()
 
 
 def _finish(db, run_id: int, status: str, summary: dict | None = None,
