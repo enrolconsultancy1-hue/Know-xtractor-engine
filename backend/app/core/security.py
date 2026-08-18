@@ -41,8 +41,10 @@ _ALWAYS_SECRET_KEYS = {
 }
 
 _SENSITIVE_VALUE_RE = re.compile(
-    r"(?i)(password|passwd|secret|token|api[_-]?key|private[_-]?key)\s*[=:]\s*\S+"
+    r"(?i)(password|passwd|secret|token|api[_-]?key|private[_-]?key)\s*([=:])\s*\S+"
 )
+
+_KV_RE = re.compile(r"^\s*([A-Za-z0-9_.-]+)\s*([=:])\s*(\S.*)$")
 
 
 def is_within(base: Path, target: Path) -> bool:
@@ -80,3 +82,25 @@ def classify_secret_key(key: str) -> str | None:
 def looks_like_secret_line(line: str) -> bool:
     """Heuristic: does this single config line carry a secret?"""
     return bool(_SENSITIVE_VALUE_RE.search(line))
+
+
+def redact_secrets(text: str) -> str:
+    """Best-effort redaction of secret-looking content in free text.
+
+    Redacts ``key=value`` / ``key: value`` lines whose key is classified as
+    secret, and any inline ``password=...``-style occurrences. This is a
+    defensive final pass for human-readable exports; analyzers never capture
+    raw secret values in the first place.
+    """
+    out: list[str] = []
+    for line in text.splitlines():
+        m = _KV_RE.match(line)
+        if m and classify_secret_key(m.group(1)):
+            out.append(f"{m.group(1)}{m.group(2)}[REDACTED]")
+        else:
+            out.append(
+                _SENSITIVE_VALUE_RE.sub(
+                    lambda mm: f"{mm.group(1)}{mm.group(2)}[REDACTED]", line
+                )
+            )
+    return "\n".join(out)

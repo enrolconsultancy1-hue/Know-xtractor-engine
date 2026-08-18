@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.auth import require_auth
+from app.api.deps import require_rate_limit
 from app.db import get_session
 from app.db.models import AnalysisRun, Project
 from app.services.runner import start_analysis
@@ -29,7 +30,7 @@ class AnalyzeRequest(BaseModel):
 
 
 @router.post("", status_code=201)
-def create_project(body: ProjectCreate, _auth: None = Depends(require_auth), session: Session = Depends(get_session)) -> dict:
+def create_project(body: ProjectCreate, _auth: None = Depends(require_auth), _rate: None = Depends(require_rate_limit), session: Session = Depends(get_session)) -> dict:
     name = body.name or body.repository_url.rstrip("/").split("/")[-1].removesuffix(".git") or "project"
     project = Project(
         name=name,
@@ -84,7 +85,7 @@ def get_project(project_id: int, session: Session = Depends(get_session)) -> dic
 
 
 @router.post("/{project_id}/analyze", status_code=202)
-def analyze_project(project_id: int, body: AnalyzeRequest, _auth: None = Depends(require_auth), session: Session = Depends(get_session)) -> dict:
+def analyze_project(project_id: int, body: AnalyzeRequest, _auth: None = Depends(require_auth), _rate: None = Depends(require_rate_limit), session: Session = Depends(get_session)) -> dict:
     project = session.get(Project, project_id)
     if not project:
         raise HTTPException(404, "Project not found")
@@ -99,12 +100,12 @@ def analyze_project(project_id: int, body: AnalyzeRequest, _auth: None = Depends
 
 
 @router.post("/{project_id}/reanalyze", status_code=202)
-def reanalyze_project(project_id: int, body: AnalyzeRequest, _auth: None = Depends(require_auth), session: Session = Depends(get_session)) -> dict:
+def reanalyze_project(project_id: int, body: AnalyzeRequest, _auth: None = Depends(require_auth), _rate: None = Depends(require_rate_limit), session: Session = Depends(get_session)) -> dict:
     return analyze_project(project_id, body, session=session)
 
 
 @router.post("/{project_id}/cancel")
-def cancel_project(project_id: int, _auth: None = Depends(require_auth), session: Session = Depends(get_session)) -> dict:
+def cancel_project(project_id: int, _auth: None = Depends(require_auth), _rate: None = Depends(require_rate_limit), session: Session = Depends(get_session)) -> dict:
     from app.services.runner import cancel_analysis
 
     runs = session.scalars(
@@ -120,7 +121,7 @@ def cancel_project(project_id: int, _auth: None = Depends(require_auth), session
 
 
 @router.delete("/{project_id}", status_code=204)
-def delete_project(project_id: int, _auth: None = Depends(require_auth), session: Session = Depends(get_session)) -> Response:
+def delete_project(project_id: int, _auth: None = Depends(require_auth), _rate: None = Depends(require_rate_limit), session: Session = Depends(get_session)) -> Response:
     project = session.get(Project, project_id)
     if not project:
         raise HTTPException(404, "Project not found")

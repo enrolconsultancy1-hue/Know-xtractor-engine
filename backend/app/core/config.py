@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     stale_workspace_max_age_days: int = 7
 
+    # Rate limiting (Phase 7); 0 disables.
+    rate_limit_requests: int = 60
+    rate_limit_window_seconds: int = 60
+
     # Auth (Phase 2). token = shared bearer key; users/JWT is a future extension.
     auth_mode: str = "none"  # none | token
     api_key: str | None = None

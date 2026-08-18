@@ -121,9 +121,11 @@ def classify_file(path: Path, size: int) -> tuple[FileCategory, str, bool]:
     # Category inference.
     if ext in {".md", ".markdown", ".rst"} or lower in {"readme", "readme.md"}:
         category = FileCategory.DOC
-    elif lower in {"dockerfile"} or ext in {".yml", ".yaml", ".toml", ".ini", ".cfg", ".conf", ".env"} or name in {"requirements.txt", "package.json", "go.mod", "go.sum", "cargo.toml",
-                  "pom.xml", "build.gradle", "pyproject.toml", "setup.py", "gemfile",
-                  "composer.json", "pubspec.yaml"}:
+    elif (lower in {"dockerfile"}
+          or ext in {".yml", ".yaml", ".toml", ".ini", ".cfg", ".conf", ".env"}
+          or name in {"requirements.txt", "package.json", "go.mod", "go.sum", "cargo.toml",
+                      "pom.xml", "build.gradle", "pyproject.toml", "setup.py", "gemfile",
+                      "composer.json", "pubspec.yaml"}):
         category = FileCategory.CONFIG
     elif "test" in lower or lower.endswith("test.py") or lower.startswith("test_"):
         category = FileCategory.TEST
@@ -185,6 +187,7 @@ class FileInventory:
             dirnames[:] = [
                 d for d in dirnames
                 if d not in _DEFAULT_IGNORES
+                and not (Path(dirpath) / d).is_symlink()
                 and not _matches_ignore(
                     str(Path(dirpath) / d).replace(str(self.root), "").lstrip("\\/"), gitignore
                 )
@@ -192,6 +195,8 @@ class FileInventory:
             for fname in filenames:
                 fpath = Path(dirpath) / fname
                 rel = str(fpath.relative_to(self.root)).replace("\\", "/")
+                if fpath.is_symlink():
+                    continue
                 if _matches_ignore(rel, gitignore):
                     continue
                 try:

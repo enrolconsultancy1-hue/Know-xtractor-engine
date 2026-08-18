@@ -7,6 +7,7 @@ from pathlib import Path
 import yaml
 from fpdf import FPDF
 
+from app.core.security import redact_secrets
 from app.domain.knowledge import KnowledgePackage
 
 
@@ -67,7 +68,7 @@ def to_markdown(pkg: KnowledgePackage) -> str:
 
     lines.append("\n## Implementation Specification")
     lines.append(pkg.implementation_specification.to_prompt(pkg.metadata.get("repository", "project")))
-    return "\n".join(lines)
+    return redact_secrets("\n".join(lines))
 
 
 def to_pdf(pkg: KnowledgePackage) -> bytes:
