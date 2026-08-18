@@ -15,6 +15,16 @@ from app.core.security import classify_secret_key
 
 _CONFIG_EXTS = {".env", ".yaml", ".yml", ".json", ".toml", ".ini", ".cfg", ".conf"}
 
+# Matches a single- or double-quote character (used inside compiled patterns).
+_Q = "['\"]"
+
+_ENV_VAR_PY_RE = re.compile(
+    r"(?:os\.environ(?:\[|\.get\s*\()\s*" + _Q + r"([A-Za-z_][\w]*)" + _Q
+    + r"|(?:os\.)?getenv\s*\(\s*" + _Q + r"([A-Za-z_][\w]*)" + _Q + r")"
+)
+_ENV_VAR_JS_RE = re.compile(r"process\.env\.([A-Za-z_][\w]*)")
+_ENV_VAR_JS_IDX_RE = re.compile(r"process\.env\s*\[\s*" + _Q + r"([A-Za-z_][\w]*)" + _Q + r"\s*\]")
+
 
 class ConfigAnalyzer(BaseAnalyzer):
     name = "config"
@@ -29,8 +39,10 @@ class ConfigAnalyzer(BaseAnalyzer):
             "keys": {},
             "secret_required": [],
             "secrets_found": [],
+            "env_vars": [],
         }
         root_path = Path(root)
+        env_vars: set[str] = set()
         for f in files:
             if f.is_binary:
                 continue
@@ -39,7 +51,24 @@ class ConfigAnalyzer(BaseAnalyzer):
                 self._parse_dockerfile(root_path / f.path, f.path, result)
             elif name in {".env", "docker-compose.yml", "docker-compose.yaml"} or f.path.endswith(tuple(_CONFIG_EXTS)):
                 self._parse_config(root_path / f.path, f.path, name, result)
+            if f.language in ("python", "javascript", "typescript"):
+                self._collect_env_vars(root_path / f.path, env_vars)
+        result["env_vars"] = sorted(env_vars)
         return result
+
+    def _collect_env_vars(self, path: Path, acc: set[str]) -> None:
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return
+        if len(text) > 64_000:
+            text = text[:64_000]
+        for m in _ENV_VAR_PY_RE.finditer(text):
+            acc.add(next(g for g in m.groups() if g))
+        for m in _ENV_VAR_JS_RE.finditer(text):
+            acc.add(m.group(1))
+        for m in _ENV_VAR_JS_IDX_RE.finditer(text):
+            acc.add(m.group(1))
 
     def _parse_config(self, path: Path, rel: str, name: str, result: dict) -> None:
         try:

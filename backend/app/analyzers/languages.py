@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.analyzers.base import BaseAnalyzer
-from app.analyzers.source_graph import FileEntry, SourceGraph
+from app.analyzers.source_graph import FileCategory, FileEntry, SourceGraph
 from app.domain.common import Confidence, Evidence
 from app.domain.technology import Technology, TechnologyKind, TechnologyStack
 
@@ -133,21 +133,51 @@ class LanguageDetector(BaseAnalyzer):
             "sql": "SQL",
         }.get(lang, lang)
 
+    _CONFIG_FILENAMES = {
+        ".env", "docker-compose.yml", "docker-compose.yaml", "dockerfile",
+        "settings.py", "config.py", "application.yml", "application.properties",
+    }
+    _CONFIG_EXTS = {".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".properties", ".env"}
+    _DB_PATH_HINTS = ("settings", "config", "database", "db/backends", "connection", "orm")
+
     def _collect_marker_text(self, files: list[FileEntry], root: Path) -> str:
-        """Read up to N config/manifest files' text for marker matching."""
+        """Read manifests, config files, and a bounded source sample for markers."""
         chunks: list[str] = []
         manifests = {
             "requirements.txt", "package.json", "pyproject.toml", "setup.py",
             "go.mod", "Cargo.toml", "pom.xml", "build.gradle", "composer.json",
             "Gemfile", "pubspec.yaml", "Pipfile", "poetry.lock",
         }
+        total = 0
+        source_count = 0
         for f in files:
-            if f.path.split("/")[-1] in manifests and not f.is_binary:
-                try:
-                    text = (root / f.path).read_text(encoding="utf-8", errors="ignore")
-                    chunks.append(text[:50_000])
-                except OSError:
-                    continue
+            if f.is_binary:
+                continue
+            name = f.path.split("/")[-1].lower()
+            ext = f.path.rsplit(".", 1)[-1].lower() if "." in f.path else ""
+            lower_path = f.path.lower()
+            is_interesting_source = (
+                f.category == FileCategory.SOURCE
+                and (source_count < 100 or any(k in lower_path for k in self._DB_PATH_HINTS))
+            )
+            include = (
+                name in manifests
+                or name in self._CONFIG_FILENAMES
+                or ext in self._CONFIG_EXTS
+                or is_interesting_source
+            )
+            if not include:
+                continue
+            try:
+                text = (root / f.path).read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            chunks.append(text[:20_000])
+            total += min(len(text), 20_000)
+            if f.category == FileCategory.SOURCE:
+                source_count += 1
+            if total > 5_000_000:
+                break
         return "\n".join(chunks)
 
     def _any_marker(self, markers: list[str], files: list[FileEntry], text: str) -> bool:

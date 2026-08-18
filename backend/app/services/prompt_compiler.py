@@ -239,10 +239,17 @@ def _render_facts(pkg: KnowledgePackage, top_n: int) -> str:
 
 def _render_config(pkg: KnowledgePackage) -> str:
     parts: list[str] = []
-    if pkg.configuration:
+    env_vars = pkg.configuration.get("env_vars") or []
+    keys = pkg.configuration.get("keys") or {}
+    secrets = pkg.configuration.get("secret_required") or []
+    if env_vars or keys or secrets:
         parts.append("## Configuration & Environment\n")
-        for k, v in pkg.configuration.items():
-            parts.append(f"- {k}: {v}")
+        if env_vars:
+            parts.append("- Environment variables: " + ", ".join(sorted(env_vars)[:40]) + "\n")
+        if keys:
+            parts.append("- Config keys: " + ", ".join(sorted(keys)[:40]) + "\n")
+        if secrets:
+            parts.append("- Required secrets: " + ", ".join(sorted(secrets)[:20]) + "\n")
         parts.append("")
     if pkg.integrations:
         parts.append("## Integrations\n")

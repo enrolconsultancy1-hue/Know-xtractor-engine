@@ -233,7 +233,11 @@ def build_implementation_spec(pkg: KnowledgePackage) -> ImplementationSpec:
         *[f"Entity {e.name} ({e.source_kind})" for e in pkg.data_model.entities],
         *[f"Rel: {r.source} -> {r.target} ({r.kind.value})" for r in pkg.data_model.relationships],
     ]
-    spec.configuration = [f"ENV: {k}" for k in pkg.configuration.get("secret_required", [])]
+    spec.configuration = [
+        *[f"ENV: {k}" for k in pkg.configuration.get("env_vars", [])],
+        *[f"Config key: {k}" for k in sorted(pkg.configuration.get("keys", {}))],
+        *[f"Secret: {k}" for k in pkg.configuration.get("secret_required", [])],
+    ]
     spec.security = pkg.security
     spec.testing = [
         f"Test file {t['file']} ({t['test_count']} tests)" for t in pkg.testing[:20]
