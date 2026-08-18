@@ -139,6 +139,12 @@ class DataAnalyzer(BaseAnalyzer):
         if source_kind == "django" and "Field" in func:
             typ = func.split(".")[-1].replace("Field", "").lower()
             col.type = typ or "unknown"
+            for kw in node.value.keywords:
+                if kw.arg == "primary_key" and isinstance(kw.value, ast.Constant) and kw.value.value:
+                    col.primary_key = True
+                    col.nullable = False
+                if kw.arg == "null" and isinstance(kw.value, ast.Constant):
+                    col.nullable = bool(kw.value.value)
             return col
         return None
 

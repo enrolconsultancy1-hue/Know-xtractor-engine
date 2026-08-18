@@ -62,6 +62,10 @@ _SPRING_VERB_RE = re.compile(
 )
 _SPRING_BASE_RE = re.compile(r"@RequestMapping\s*\(\s*\"([^\"]+)\"\s*\)")
 
+# Django DRF: view classes declare serializer_class.
+_DJANGO_CLASS_RE = re.compile(r"\bclass\s+(\w+)\s*\(")
+_DJANGO_SERIALIZER_RE = re.compile(r"serializer_class\s*=\s*([A-Za-z_]\w*)")
+
 
 class ApiAnalyzer(BaseAnalyzer):
     name = "api"
@@ -81,6 +85,8 @@ class ApiAnalyzer(BaseAnalyzer):
         for var, p in include_prefix.items():
             prefix_map.setdefault(var, p)
 
+        django_serializers = self._collect_django_serializers(files, root_path)
+
         for f in files:
             if f.is_binary:
                 continue
@@ -99,16 +105,21 @@ class ApiAnalyzer(BaseAnalyzer):
             if f.language == "python":
                 endpoints = self._python_routes(source, f.path, prefix_map)
                 for method, path, handler in endpoints:
+                    req, resp = self._python_handler_schemas(source, handler)
                     spec.endpoints.append(ApiEndpoint(
                         method=method, path=path, handler=handler, file=f.path,
+                        request_schema=req, response_schema=resp,
                         framework="FastAPI" if method != "any" else "Flask",
                         confidence=Confidence(score=0.85, rationale="route decorator"),
                         evidence=[Evidence(file=f.path, symbol=handler, reason="route decorator")],
                     ))
                     frameworks.add(spec.endpoints[-1].framework)
                 for method, path, handler in self._django_urlconf(source, f.path):
+                    view_name = handler.replace(".as_view", "").rsplit(".", 1)[-1]
+                    serializer = django_serializers.get(view_name)
                     spec.endpoints.append(ApiEndpoint(
                         method=method, path=path, handler=handler, file=f.path,
+                        request_schema=serializer, response_schema=serializer,
                         framework="Django",
                         confidence=Confidence(score=0.75, rationale="Django URLconf"),
                         evidence=[Evidence(file=f.path, symbol=handler, reason="URL pattern")],
@@ -205,6 +216,82 @@ class ApiAnalyzer(BaseAnalyzer):
                     break
             out.append((method, route, handler))
         return out
+
+    # FastAPI/Starlette parameter names injected by the framework (not part of
+    # the request-body schema).
+    _FRAMEWORK_PARAM_NAMES = {"self", "cls", "request", "response", "background_tasks", "websocket"}
+    _PRIMITIVE_TYPES = {
+        "None", "Any", "Request", "Response", "BackgroundTasks", "WebSocket",
+        "Path", "Query", "Body", "Form", "Header", "Cookie", "File", "UploadFile",
+    }
+
+    def _python_handler_schemas(self, source: str, handler: str) -> tuple[str | None, str | None]:
+        """Extract (request, response) type hints from a Python handler signature."""
+        if not handler:
+            return None, None
+        m = re.search(
+            rf"(?:async\s+)?def\s+{re.escape(handler)}\s*\(([^)]*)\)\s*(?:->\s*([^:\n]+?))?\s*:",
+            source,
+        )
+        if not m:
+            return None, None
+        request = self._extract_request_schema(m.group(1))
+        resp_raw = (m.group(2) or "").strip()
+        response = self._clean_type(resp_raw) if resp_raw and resp_raw != "None" else None
+        return request, response
+
+    @classmethod
+    def _extract_request_schema(cls, params: str) -> str | None:
+        """Heuristically pick the request-body type from a handler's parameters."""
+        for p in params.split(","):
+            p = p.strip()
+            if not p or p.startswith("*"):
+                continue
+            m = re.match(r"([A-Za-z_]\w*)\s*(?::\s*(.+?))?\s*(?:=\s*.*)?$", p, re.S)
+            if not m:
+                continue
+            name, ann = m.group(1), m.group(2)
+            if name in cls._FRAMEWORK_PARAM_NAMES:
+                continue
+            if not ann:
+                continue
+            ann = ann.strip()
+            if ann.startswith("Depends"):
+                continue
+            if ann.startswith("Annotated"):
+                inner = re.match(r"Annotated\s*\[([^,]+)", ann)
+                if not inner:
+                    continue
+                ann = inner.group(1).strip()
+            if ann in cls._PRIMITIVE_TYPES:
+                continue
+            # Skip scalar/primitive annotations (e.g. str / int / item_id: int).
+            if ann[0].islower() and not ann.startswith(("list[", "dict[", "set[", "tuple[")):
+                continue
+            return cls._clean_type(ann)
+        return None
+
+    @staticmethod
+    def _clean_type(t: str) -> str:
+        return re.sub(r"\s+", " ", t).strip().strip(",")
+
+    def _collect_django_serializers(self, files: list[FileEntry], root_path: Path) -> dict[str, str]:
+        """Map Django view class names to their declared ``serializer_class``."""
+        m: dict[str, str] = {}
+        for f in files:
+            if f.language != "python" or f.is_binary:
+                continue
+            try:
+                source = (root_path / f.path).read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            for cm in _DJANGO_CLASS_RE.finditer(source):
+                cls_name = cm.group(1)
+                body = source[cm.end(): cm.end() + 2000]
+                sm = _DJANGO_SERIALIZER_RE.search(body)
+                if sm:
+                    m[cls_name] = sm.group(1)
+        return m
 
     def _collect_prefixes(
         self, files: list[FileEntry], root_path: Path

@@ -105,9 +105,23 @@ def _render_components(pkg: KnowledgePackage, top_n: int) -> str:
 
 
 def _render_entity_line(e: DataEntity) -> str:
-    cols = ", ".join(f"{c.name}:{c.type}" for c in e.columns[:15])
+    cols: list[str] = []
+    for c in e.columns[:15]:
+        flags: list[str] = []
+        if c.primary_key:
+            flags.append("pk")
+        if c.foreign_key:
+            flags.append("fk")
+        if not c.nullable:
+            flags.append("not-null")
+        if c.default is not None:
+            flags.append(f"default={c.default}")
+        col = f"{c.name}:{c.type}"
+        if flags:
+            col += f"[{','.join(flags)}]"
+        cols.append(col)
     more = f" (+{len(e.columns) - 15} more)" if len(e.columns) > 15 else ""
-    return f"- `{e.name}` ({e.kind}) — {cols}{more}"
+    return f"- `{e.name}` ({e.kind}) — {', '.join(cols)}{more}"
 
 
 def _render_entities(pkg: KnowledgePackage, top_n: int) -> str:

@@ -102,3 +102,22 @@ def test_to_engineered_prompt_lists_chunks():
     assert "Rebuild Instructions" in text
     assert "Additional Detail Chunks" in text
     assert "components-" in text
+
+
+def test_entity_line_renders_constraints():
+    from app.domain.data_model import DataColumn
+    from app.services.prompt_compiler import _render_entity_line
+
+    e = DataEntity(
+        name="User",
+        kind="model",
+        columns=[
+            DataColumn(name="id", type="integer", primary_key=True, nullable=False),
+            DataColumn(name="email", type="string", nullable=False),
+            DataColumn(name="name", type="string", default="''"),
+        ],
+    )
+    line = _render_entity_line(e)
+    assert "id:integer[pk,not-null]" in line
+    assert "email:string[not-null]" in line
+    assert "name:string[default='']" in line
