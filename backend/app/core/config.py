@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     api_prefix: str = "/api"
     environment: str = "development"  # development | production
 
+    # Auth (Phase 2). token = shared bearer key; users/JWT is a future extension.
+    auth_mode: str = "none"  # none | token
+    api_key: str | None = None
+
     # Storage
     data_dir: Path = Path("data")
     workspace_dir: Path = Path("analysis_workspace")
@@ -61,6 +65,8 @@ class Settings(BaseSettings):
             problems.append("KNOX_DATABASE_URL must point at a non-SQLite database in production")
         if "*" in self.cors_origins:
             problems.append("KNOX_CORS_ORIGINS must be an explicit allowlist (no '*') in production")
+        if self.auth_mode == "token" and not self.api_key:
+            problems.append("KNOX_AUTH_MODE=token requires KNOX_API_KEY to be set")
         return problems
 
 

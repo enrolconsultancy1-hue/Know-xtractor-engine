@@ -25,12 +25,12 @@ Definition of Done (DoD) is satisfied and the terminal test command passes.
 
 **Goal:** single source of truth for all runtime settings; safe, validated config.
 
-- [ ] `backend/.env.example` with every setting documented
-- [ ] Required-settings validation (fail fast with a clear message, no silent defaults for prod)
-- [ ] Postgres support via `KNOX_DATABASE_URL` (psycopg driver) with SQLite as the dev fallback
-- [ ] CORS allowlist (`KNOX_CORS_ORIGINS`), not `*`
-- [ ] Resource limits: max repo size, max file size, max files, clone depth, analysis timeout
-- [ ] Secret redaction: never write secrets into exports/logs (audit + unit test)
+- [x] `backend/.env.example` with every setting documented
+- [x] Required-settings validation (fail fast with a clear message, no silent defaults for prod)
+- [x] Postgres support via `KNOX_DATABASE_URL` (psycopg driver) with SQLite as the dev fallback
+- [x] CORS allowlist (`KNOX_CORS_ORIGINS`), not `*`
+- [x] Resource limits: max repo size, max file size, max files, clone depth, analysis timeout
+- [x] Secret redaction: never write secrets into exports/logs (audit + unit test)
 
 **DoD:** `KNOX_DATABASE_URL` pointing at Postgres boots and migrates; `.env.example` is the
 complete reference; limits are enforced and tested.
@@ -51,11 +51,11 @@ uvicorn app.main:app --reload   # http://127.0.0.1:8000/docs
 
 **Goal:** mutations are protected; reads can stay open (self-host) or be protected.
 
-- [ ] API-key / bearer-token auth dependency (`app/api/auth.py`)
-- [ ] Optional JWT user model + owner scoping on projects (or documented single-tenant mode)
-- [ ] Protect create/start/cancel/delete endpoints
-- [ ] `KNOX_AUTH_MODE` = `none` (dev) | `token` (shared secret) | `users` (JWT)
-- [ ] Tests: 401 on protected routes without token; 200 with token
+- [x] API-key / bearer-token auth dependency (`app/api/auth.py`)
+- [x] Single-tenant token mode (`KNOX_AUTH_MODE=token`); JWT/user scoping documented as a future multi-tenant extension
+- [x] Protect create/start/cancel/delete endpoints (delete endpoint added)
+- [x] `KNOX_AUTH_MODE` = `none` (dev) | `token` (shared secret); `users` (JWT) deferred
+- [x] Tests: 401 on protected routes without token; 200 with token; 204 on delete
 
 **DoD:** with `KNOX_AUTH_MODE=token`, unauthenticated mutation calls return 401;
 authenticated calls succeed; dev mode (`none`) is unaffected.
