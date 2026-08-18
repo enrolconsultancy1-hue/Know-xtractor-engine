@@ -140,8 +140,9 @@ class ArchitectureDiscoverer:
         return any(k in infra for k in ("rabbitmq", "kafka", "celery"))
 
     _SERVICE_EXCLUDED_TOP_DIRS = {
-        "examples", "example", "tests", "test", "docs", "doc", "tools",
-        "scripts", "benchmarks", "benchmark", "contrib", "migrations",
+        "examples", "example", "tests", "test", "docs", "doc", "docs_src",
+        "docs-src", "documentation", "tools", "scripts", "benchmarks",
+        "benchmark", "contrib", "migrations", "samples", "sample", "demo",
     }
     _ENTRYPOINT_FILES = {
         "main.py", "app.py", "manage.py", "run.py", "index.py",
@@ -149,12 +150,14 @@ class ArchitectureDiscoverer:
     }
 
     def _count_service_roots(self) -> int:
-        """Count distinct top-level dirs containing an entry point (excluding
-        example/test/docs trees). A real microservices repo has >= 2."""
+        """Count distinct top-level dirs whose entry point lives *directly*
+        under them (e.g. ``services/auth/main.py``). Deeply-nested entry points
+        (documentation examples, ``src/<pkg>/app.py`` trees, library modules
+        named ``wsgi.py``) do not indicate an independently deployable service."""
         roots: set[str] = set()
         for path in self.graph.modules:
             parts = path.split("/")
-            if len(parts) < 2:
+            if len(parts) != 2:
                 continue
             top = parts[0].lower()
             if top in self._SERVICE_EXCLUDED_TOP_DIRS:

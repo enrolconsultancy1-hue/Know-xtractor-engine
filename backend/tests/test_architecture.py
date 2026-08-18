@@ -35,3 +35,18 @@ def test_multiple_service_roots_is_microservices():
     ])
     names = {p.name for p in report.patterns}
     assert "Microservices" in names
+
+
+def test_docs_examples_and_library_modules_are_not_microservices():
+    # FastAPI-style layout: deeply-nested docs_src examples with main.py, a
+    # library module named wsgi.py, and a tests/main.py must NOT be flagged
+    # as microservices (no independently deployable service root).
+    report = _report([
+        "docs_src/app_testing/app_a_py310/main.py",
+        "docs_src/app_testing/app_b_py310/main.py",
+        "fastapi/middleware/wsgi.py",
+        "fastapi/applications.py",
+        "tests/main.py",
+    ])
+    names = {p.name for p in report.patterns}
+    assert "Microservices" not in names
