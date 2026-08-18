@@ -1,13 +1,11 @@
 """Tests for API authentication."""
 
 import pytest
-from fastapi.testclient import TestClient
 
 import app.core.config as config_module
-from app.main import create_app
 
 # Built by concatenation so secret-scanners do not mask the literal.
-_SECRET = "se" + "kret"
+_SECRET = "knx" + "-auth-" + "token"
 
 
 def _auth_headers() -> dict[str, str]:
@@ -24,31 +22,28 @@ def _clean_settings():
     config_module._settings = None
 
 
-def test_none_mode_is_open(monkeypatch):
+def test_none_mode_is_open(monkeypatch, make_client):
     monkeypatch.setenv("KNOX_AUTH_MODE", "none")
     _reset_settings()
-    app = create_app()
-    client = TestClient(app)
+    client = make_client()
     resp = client.post("/api/projects", json={"repository_url": "https://github.com/a/b.git"})
     assert resp.status_code == 201
 
 
-def test_token_mode_rejects_without_key(monkeypatch):
+def test_token_mode_rejects_without_key(monkeypatch, make_client):
     monkeypatch.setenv("KNOX_AUTH_MODE", "token")
     monkeypatch.setenv("KNOX_API_KEY", _SECRET)
     _reset_settings()
-    app = create_app()
-    client = TestClient(app)
+    client = make_client()
     resp = client.post("/api/projects", json={"repository_url": "https://github.com/a/b.git"})
     assert resp.status_code == 401
 
 
-def test_token_mode_accepts_valid_key(monkeypatch):
+def test_token_mode_accepts_valid_key(monkeypatch, make_client):
     monkeypatch.setenv("KNOX_AUTH_MODE", "token")
     monkeypatch.setenv("KNOX_API_KEY", _SECRET)
     _reset_settings()
-    app = create_app()
-    client = TestClient(app)
+    client = make_client()
     resp = client.post(
         "/api/projects",
         json={"repository_url": "https://github.com/a/b.git"},
@@ -57,12 +52,11 @@ def test_token_mode_accepts_valid_key(monkeypatch):
     assert resp.status_code == 201
 
 
-def test_token_mode_rejects_wrong_key(monkeypatch):
+def test_token_mode_rejects_wrong_key(monkeypatch, make_client):
     monkeypatch.setenv("KNOX_AUTH_MODE", "token")
     monkeypatch.setenv("KNOX_API_KEY", _SECRET)
     _reset_settings()
-    app = create_app()
-    client = TestClient(app)
+    client = make_client()
     resp = client.post(
         "/api/projects",
         json={"repository_url": "https://github.com/a/b.git"},
@@ -71,12 +65,11 @@ def test_token_mode_rejects_wrong_key(monkeypatch):
     assert resp.status_code == 401
 
 
-def test_delete_project(monkeypatch):
+def test_delete_project(monkeypatch, make_client):
     monkeypatch.setenv("KNOX_AUTH_MODE", "token")
     monkeypatch.setenv("KNOX_API_KEY", _SECRET)
     _reset_settings()
-    app = create_app()
-    client = TestClient(app)
+    client = make_client()
     created = client.post(
         "/api/projects",
         json={"repository_url": "https://github.com/a/b.git"},

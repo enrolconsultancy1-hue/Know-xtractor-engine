@@ -9,7 +9,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import Settings, get_settings
 from app.core.logging import setup_logging
-from app.db import init_db
 
 setup_logging()
 
@@ -57,7 +56,6 @@ def create_app() -> FastAPI:
     def root() -> dict:
         return {"app": settings.app_name, "docs": "/docs", "api": prefix}
 
-    init_db()
     return app
 
 

@@ -48,16 +48,25 @@ def _emit(run_id: int, stage: str, pct: float, message: str) -> None:
         _runs[run_id].setdefault("events", []).append({"stage": stage, "pct": pct, "message": message})
 
 
-def start_analysis(project_id: int, url: str, branch: str = "main", commit_ref: str | None = None) -> int:
-    """Create an AnalysisRun row and enqueue the analysis task."""
-    session = SessionLocal()
+def start_analysis(project_id: int, url: str, branch: str = "main", commit_ref: str | None = None,
+                   session: Any = None) -> int:
+    """Create an AnalysisRun row and enqueue the analysis task.
+
+    ``session`` is optional: request handlers pass their dependency-injected
+    session so the run lands in the same DB/transaction as the project; the RQ
+    worker and other background callers omit it to get a fresh ``SessionLocal``.
+    """
+    owns_session = session is None
+    if session is None:
+        session = SessionLocal()
     try:
         run = AnalysisRun(project_id=project_id, status="pending", stage="queued")
         session.add(run)
         session.commit()
         run_id = run.id
     finally:
-        session.close()
+        if owns_session:
+            session.close()
 
     _runs[run_id] = {
         "status": "queued", "stage": "queued", "progress": 0.0,

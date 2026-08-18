@@ -1,25 +1,19 @@
 """API endpoint smoke tests using FastAPI TestClient."""
 
-from fastapi.testclient import TestClient
 
-from app.main import app
-
-client = TestClient(app)
-
-
-def test_health():
+def test_health(client):
     resp = client.get("/api/health")
     assert resp.status_code == 200
     assert resp.json()["status"] == "ok"
 
 
-def test_root():
+def test_root(client):
     resp = client.get("/")
     assert resp.status_code == 200
     assert resp.json()["app"] == "KNOX"
 
 
-def test_create_and_list_projects():
+def test_create_and_list_projects(client):
     resp = client.post("/api/projects", json={"repository_url": "https://github.com/example/repo.git"})
     assert resp.status_code == 201
     project_id = resp.json()["id"]
@@ -30,7 +24,7 @@ def test_create_and_list_projects():
     assert any(p["id"] == project_id for p in listing.json())
 
 
-def test_analyze_requires_valid_url():
+def test_analyze_requires_valid_url(client):
     resp = client.post("/api/projects", json={"repository_url": "https://github.com/example/repo.git"})
     project_id = resp.json()["id"]
     # Analysis starts asynchronously; a 202 is returned.

@@ -15,6 +15,30 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+## Database setup
+
+The schema is owned by Alembic. Before the first run (and after pulling new
+migrations), apply migrations:
+
+```bash
+cd backend
+python -m alembic upgrade head
+```
+
+> **Recovering a database created by older KNOX builds:** those builds
+> auto-created tables with `create_all` (no Alembic stamp). If `alembic upgrade
+> head` fails with `table projects already exists`, reset the dev DB and migrate
+> fresh:
+>
+> ```powershell
+> # stop any running uvicorn first, then from backend/:
+> Remove-Item data\knox.db
+> python -m alembic upgrade head
+> ```
+>
+> Production databases (PostgreSQL) never hit this path because they are
+> created empty and migrated with Alembic.
+
 ## Running
 
 ```bash
@@ -45,10 +69,14 @@ file. See `backend/app/core/config.py` for the full list. Key ones:
 
 ```bash
 cd backend
-ruff check .          # lint
-mypy app              # type check
-pytest                # tests
+python -m ruff check .      # lint
+python -m mypy app          # type check
+python -m pytest -q         # tests
 ```
+
+Pytest uses an isolated temp dir under `backend/.pytest-tmp` (gitignored) so it
+does not depend on the OS temp folder. API tests create a throwaway SQLite DB and
+override the session dependency, so they never touch `data/knox.db`.
 
 The frontend uses TypeScript (strict), and Vite for bundling.
 
@@ -66,8 +94,8 @@ and API endpoints.
 - **Add a language analyzer:** see `ANALYZER_GUIDE.md`.
 - **Enable AI reasoning:** set `KNOX_AI_PROVIDER` + the matching API key env var.
 - **Reset data:** delete `data/`, `analysis_workspace/`, `knowledge_packages/`.
-- **Run a migration:** `cd backend; alembic upgrade head` (new ones via
-  `alembic revision --autogenerate -m "..."`).
+- **Run a migration:** `cd backend; python -m alembic upgrade head` (new ones via
+  `python -m alembic revision --autogenerate -m "..."`).
 - **Analyze a remote repo (no UI):** `cd backend; python analyze_remote.py <url> [branch]`.
 
 ## Limitations (documented, not hidden)
@@ -79,5 +107,6 @@ and API endpoints.
   (`app/services/queue.py`); a production deployment can swap in Celery/RQ
   (`app/services/runner.py` is the only transport-specific module).
 - PDF export is a simple text renderer (fpdf2); Markdown/JSON are the primary formats.
-- Database schema is managed with Alembic (`migrations/`); `create_all` is used
-  only for the demo/dev path.
+- Database schema is managed exclusively with Alembic (`migrations/`); the app
+  no longer calls `create_all` at startup. `app.db.session.init_db()` remains
+  only as a legacy dev helper.

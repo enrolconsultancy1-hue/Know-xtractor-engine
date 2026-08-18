@@ -93,6 +93,7 @@ def analyze_project(project_id: int, body: AnalyzeRequest, _auth: None = Depends
         project.repository_url,
         branch=body.branch or project.branch,
         commit_ref=body.commit_ref or project.commit_ref,
+        session=session,
     )
     return {"analysis_id": run_id, "status": "started"}
 

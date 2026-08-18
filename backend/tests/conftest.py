@@ -102,3 +102,45 @@ def git_project(tmp_path: Path) -> Path:
     commit("Add database models and migration", "models.py")
     commit("Add authentication middleware", "auth.py")
     return root
+
+
+@pytest.fixture
+def make_client(tmp_path: Path):
+    """Build an app + TestClient bound to an isolated per-test SQLite DB.
+
+    The schema is owned by Alembic in normal operation; tests create the tables
+    directly on a throwaway DB and override ``get_session`` so they never touch
+    the developer's ``data/knox.db``.
+    """
+    from fastapi.testclient import TestClient
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from app.db import Base, get_session, models  # noqa: F401  (models registers tables)
+    from app.main import create_app
+
+    def _make() -> TestClient:
+        engine = create_engine(
+            f"sqlite:///{tmp_path / 'api_test.db'}",
+            connect_args={"check_same_thread": False},
+        )
+        Base.metadata.create_all(bind=engine)
+        testing_session = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+        def override_get_session():
+            s = testing_session()
+            try:
+                yield s
+            finally:
+                s.close()
+
+        app = create_app()
+        app.dependency_overrides[get_session] = override_get_session
+        return TestClient(app)
+
+    return _make
+
+
+@pytest.fixture
+def client(make_client):
+    return make_client()
