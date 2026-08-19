@@ -103,6 +103,7 @@ pytest
 
 ## Documentation
 
+- [QUICKSTART.md](docs/QUICKSTART.md) — clone → install → analyze a real repo → build prompt (Windows)
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) — system design and pipeline
 - [DEVELOPMENT.md](docs/DEVELOPMENT.md) — setup, tooling, contribution
 - [API.md](docs/API.md) — REST API reference
