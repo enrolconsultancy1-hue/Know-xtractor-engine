@@ -62,6 +62,18 @@ def to_markdown(pkg: KnowledgePackage) -> str:
     for f in pkg.facts:
         lines.append(f"- [{f.kind.upper()}] ({f.confidence:.2f}) {f.fact}")
 
+    if pkg.logic_capture and pkg.logic_capture.captured:
+        lines.append("\n## Logic Capture (source-of-record)")
+        lines.append("")
+        lines.append(f"> ⚠️ {pkg.logic_capture.warning}")
+        lines.append("")
+        for c in pkg.logic_capture.captured:
+            lines.append(f"### `{c.name}` — {c.path}:{c.line} ({c.kind})")
+            lines.append("")
+            lines.append(f"```{c.language}")
+            lines.append(c.body)
+            lines.append("```")
+
     lines.append("\n## Risks")
     for risk in pkg.risks:
         lines.append(f"- {risk}")

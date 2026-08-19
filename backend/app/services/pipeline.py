@@ -16,6 +16,7 @@ from app.analyzers.doc_analyzer import DocumentationAnalyzer
 from app.analyzers.generic import GenericAnalyzer
 from app.analyzers.inventory import FileInventory
 from app.analyzers.languages import LanguageDetector
+from app.analyzers.logic_capture import LogicCaptureAnalyzer
 from app.analyzers.python import PythonAnalyzer
 from app.analyzers.secret_scanner import SecretScanner
 from app.analyzers.source_graph import FileEntry, SourceGraph
@@ -59,6 +60,7 @@ def _register_default_analyzers() -> AnalyzerRegistry:
             TestAnalyzer(),
             DocumentationAnalyzer(),
             SecretScanner(),
+            LogicCaptureAnalyzer(),
         ):
             registry.register(analyzer)
         _registered = True
@@ -155,6 +157,24 @@ class AnalysisPipeline:
         ctx.architecture = ArchitectureDiscoverer(
             ctx.graph, ctx.components, ctx.stack, ctx.apis
         ).discover()
+
+        # 8b. Opt-in logic capture (bounded source-of-record for function
+        # bodies). Runs after APIs + workflows so priority names are known.
+        from app.core.config import get_settings
+
+        lc_settings = get_settings()
+        analyzer_ctx["logic_capture_settings"] = {
+            "enabled": lc_settings.logic_capture_enabled,
+            "max_functions": lc_settings.logic_capture_max_functions,
+            "max_lines_per_function": lc_settings.logic_capture_max_lines_per_function,
+            "include_tests": lc_settings.logic_capture_include_tests,
+        }
+        analyzer_ctx["apis"] = ctx.apis
+        analyzer_ctx["workflows"] = ctx.workflows
+        lc_result = self.registry.require("logic_capture").analyze(
+            ctx.repo_path, inventory, ctx.graph, analyzer_ctx
+        )
+        ctx.config["logic_capture"] = lc_result
 
         # 9. Git analysis.
         cb("git_analysis", 0.85, "Analyzing git history")

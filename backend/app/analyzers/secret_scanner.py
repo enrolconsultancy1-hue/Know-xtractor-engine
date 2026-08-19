@@ -54,6 +54,17 @@ _NON_SECRET_FRAGMENTS = ("hash", "salt", "algo", "algorithm", "scheme", "cipher"
 _MAX_SCAN_BYTES = 512_000
 
 
+def redact_known_secret_values(text: str) -> str:
+    """Replace high-confidence secret literals (AWS keys, tokens, ...) with [REDACTED].
+
+    Used by the opt-in logic-capture mode so captured function bodies can
+    never re-materialize credential-looking literals.
+    """
+    for _category, pattern in _PATTERNS:
+        text = pattern.sub("[REDACTED]", text)
+    return text
+
+
 def scan_source(text: str, rel: str) -> list[dict[str, Any]]:
     """Scan one source file's text for hardcoded secrets. Values are never returned."""
     findings: list[dict[str, Any]] = []

@@ -17,6 +17,36 @@ from .technology import TechnologyStack
 from .workflow import Workflow
 
 
+class LogicCaptureBody(BaseModel):
+    """One captured function/method body (opt-in source-of-record mode).
+
+    ``body`` is the verbatim (but secret-redacted) source text of the
+    function. This intentionally re-materializes source: it exists only when
+    the operator explicitly enables logic capture.
+    """
+
+    name: str
+    kind: str = "function"  # function | method
+    path: str
+    language: str
+    line: int = 0
+    body: str
+
+
+class LogicCaptureSection(BaseModel):
+    """Opt-in source-of-record for function bodies (bounded + redacted)."""
+
+    warning: str = (
+        "LOGIC CAPTURE ENABLED: this section re-materializes verbatim source "
+        "of selected functions from the analyzed repository (secrets redacted). "
+        "It exists only because the operator explicitly enabled "
+        "KNOX_LOGIC_CAPTURE_ENABLED=1. Do not treat captured code as trusted."
+    )
+    captured: list[LogicCaptureBody] = Field(default_factory=list)
+    skipped: int = 0  # functions seen but not captured (over budget / oversized)
+    total_functions: int = 0
+
+
 class KnowledgeFact(BaseModel):
     """A single extracted, classified, evidence-backed statement."""
 
@@ -46,6 +76,7 @@ class KnowledgePackage(BaseModel):
     configuration: dict[str, Any] = Field(default_factory=dict)
     testing: list[dict[str, Any]] = Field(default_factory=list)
     security: list[str] = Field(default_factory=list)
+    logic_capture: LogicCaptureSection | None = None
     architectural_sprints: EvolutionTimeline = Field(default_factory=EvolutionTimeline)
     architectural_decisions: list[str] = Field(default_factory=list)
     invariants: list[str] = Field(default_factory=list)

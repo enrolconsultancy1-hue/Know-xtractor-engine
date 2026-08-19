@@ -10,7 +10,11 @@ from app.domain.architecture import ArchitectureReport
 from app.domain.component import Component
 from app.domain.data_model import DataModel
 from app.domain.implementation import ImplementationSpec
-from app.domain.knowledge import KnowledgeFact, KnowledgePackage
+from app.domain.knowledge import (
+    KnowledgeFact,
+    KnowledgePackage,
+    LogicCaptureSection,
+)
 from app.domain.sprint import EvolutionTimeline
 from app.domain.technology import TechnologyStack
 from app.domain.workflow import Workflow
@@ -69,6 +73,22 @@ def assemble_knowledge(
             fact=f"{len(source_secrets)} hardcoded secret(s) detected in source",
             kind="inference", confidence=0.6, category="security",
             evidence=[{"file": s["file"], "reason": f"line {s['line']}: {s['key']}"} for s in top],
+        ))
+
+    # Opt-in logic capture: attach the bounded source-of-record section.
+    lc = config.get("logic_capture") or {}
+    if isinstance(lc.get("section"), dict) and lc["section"].get("captured") is not None:
+        pkg.logic_capture = LogicCaptureSection(**lc["section"])
+        pkg.facts.append(KnowledgeFact(
+            id=f"fact-{len(pkg.facts) + 1:03d}",
+            fact=(
+                f"Logic capture: {len(lc['section']['captured'])} function body(ies) "
+                f"recorded verbatim (of {lc['section']['total_functions']} seen; "
+                f"{lc['section']['skipped']} skipped)"
+            ),
+            kind="fact", confidence=0.95, category="source-of-record",
+            evidence=[{"file": c["path"], "reason": f"line {c['line']}: {c['name']}"}
+                      for c in lc["section"]["captured"][:3]],
         ))
 
     # Reconstruction + implementation spec.

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from typing import Any
 
 from app.domain.api_model import ApiEndpoint
 from app.domain.component import Component, ComponentType
@@ -297,6 +298,37 @@ def _render_evolution(pkg: KnowledgePackage) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_logic_capture(pkg: KnowledgePackage) -> str:
+    """Summary line for the main prompt; bodies go to detail chunks."""
+    lc = pkg.logic_capture
+    if not lc or not lc.captured:
+        return ""
+    names = ", ".join(c.name for c in lc.captured[:10])
+    more = f", +{len(lc.captured) - 10} more" if len(lc.captured) > 10 else ""
+    return (
+        "## Logic Capture (source-of-record)\n\n"
+        f"> ⚠️ {lc.warning}\n\n"
+        f"{len(lc.captured)} function body(ies) captured verbatim "
+        f"(of {lc.total_functions} seen, {lc.skipped} skipped): {names}{more}. "
+        "Full bodies in the `logic-capture-*` detail chunks."
+        "\n"
+    )
+
+
+def _logic_capture_chunk_body(lc: Any) -> str:
+    """Render captured bodies as fenced code blocks, split by language."""
+    blocks: list[str] = ["> ⚠️ " + lc.warning, ""]
+    for c in lc.captured:
+        lang = {
+            "javascript": "js", "typescript": "ts", "tsx": "tsx",
+            "csharp": "csharp", "go": "go", "rust": "rust", "java": "java",
+            "ruby": "ruby", "php": "php", "python": "python",
+        }.get(c.language, "")
+        blocks.append(f"### `{c.name}` — {c.path}:{c.line} ({c.kind})\n")
+        blocks.append(f"```{lang}\n{c.body}\n```\n")
+    return "\n".join(blocks)
+
+
 def _render_plan(pkg: KnowledgePackage) -> str:
     spec = pkg.implementation_specification
     out: list[str] = []
@@ -351,6 +383,7 @@ def _render_main(pkg: KnowledgePackage, compact: bool = False) -> str:
         "## Workflows\n\n" + _render_workflows(pkg, w_top),
         _render_config(pkg),
         _render_concerns(pkg),
+        _render_logic_capture(pkg),
         "## Facts / Inferences / Hypotheses\n\n" + _render_facts(pkg, f_top),
         _render_evolution(pkg),
         _render_plan(pkg),
@@ -375,6 +408,9 @@ def _full_detail_sections(pkg: KnowledgePackage) -> list[tuple[str, str, str]]:
     if pkg.workflows:
         body = "\n".join(f"- **{w.name}** (entry: {w.entry_point}): " + " -> ".join(s.name for s in w.steps) for w in pkg.workflows)
         sections.append(("workflows", "Full workflow list", "## Full Workflow List\n\n" + body + "\n"))
+    if pkg.logic_capture and pkg.logic_capture.captured:
+        full = _logic_capture_chunk_body(pkg.logic_capture)
+        sections.append(("logic-capture", "Captured function bodies", full))
     return sections
 
 

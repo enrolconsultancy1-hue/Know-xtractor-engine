@@ -61,6 +61,14 @@ class Settings(BaseSettings):
     # Prompt compilation (mission: one budgeted prompt for a frontier model).
     prompt_max_tokens: int = 50000
 
+    # Logic capture (opt-in source-of-record for function bodies). OFF by
+    # default: it deliberately re-materializes verbatim source into the
+    # knowledge package. Bounds keep the package size predictable.
+    logic_capture_enabled: bool = False
+    logic_capture_max_functions: int = 200
+    logic_capture_max_lines_per_function: int = 60
+    logic_capture_include_tests: bool = False
+
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
     def ensure_dirs(self) -> None:
