@@ -32,3 +32,29 @@ def test_source_files_filter(sample_py_project):
     sources = FileInventory.source_files(inv)
     assert all(e.category == FileCategory.SOURCE for e in sources)
     assert any(e.path == "app/main.py" for e in sources)
+
+
+def test_inventory_enforces_max_repo_size(tmp_path, monkeypatch):
+    import app.core.config as cfg
+
+    (tmp_path / "a.py").write_text("x = 1", encoding="utf-8")
+    (tmp_path / "b.py").write_text("y = 2", encoding="utf-8")
+    monkeypatch.setenv("KNOX_MAX_REPO_SIZE_BYTES", "1")
+    monkeypatch.setattr(cfg, "_settings", None)
+    try:
+        scanner = FileInventory(str(tmp_path))
+        inv = scanner.scan()
+        # The aggregate budget (1 byte) is exhausted by the first file, so
+        # scanning stops before recording anything and flags the truncation.
+        assert len(inv) == 0
+        assert scanner.size_limit_exceeded is True
+    finally:
+        monkeypatch.setattr(cfg, "_settings", None)
+
+
+def test_inventory_size_limit_not_hit_for_small_repo(tmp_path):
+    (tmp_path / "a.py").write_text("x = 1", encoding="utf-8")
+    scanner = FileInventory(str(tmp_path))
+    inv = scanner.scan()
+    assert len(inv) == 1
+    assert scanner.size_limit_exceeded is False

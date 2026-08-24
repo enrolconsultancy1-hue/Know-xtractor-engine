@@ -56,3 +56,12 @@ jobs:
         run: |
           pip install pip-audit
           pip-audit -r backend/requirements.txt
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: docker build -t knox-backend:ci ./backend
+      - name: Build frontend image
+        run: docker build -t knox-frontend:ci ./frontend

@@ -24,6 +24,7 @@ from app.analyzers.test_analyzer import TestAnalyzer
 from app.analyzers.treesitter import TreeSitterJsAnalyzer
 from app.analyzers.treesitter_general import TreeSitterGeneralAnalyzer
 from app.architecture.discovery import ArchitectureDiscoverer
+from app.core.config import get_settings
 from app.domain.api_model import ApiSpec
 from app.domain.architecture import ArchitectureReport
 from app.domain.component import Component
@@ -103,7 +104,14 @@ class AnalysisPipeline:
 
         # 1. File inventory.
         cb("file_inventory", 0.05, "Scanning repository files")
-        inventory = FileInventory(ctx.repo_path).scan()
+        scanner = FileInventory(ctx.repo_path)
+        inventory = scanner.scan()
+        if scanner.size_limit_exceeded:
+            ctx.warnings.append(
+                f"Repository exceeds KNOX_MAX_REPO_SIZE_BYTES "
+                f"({get_settings().max_repo_size_bytes}); analysis truncated to the "
+                f"{len(inventory)} files scanned before the limit was reached"
+            )
         ctx.inventory = inventory
         ctx.warnings.extend(
             f"Oversized file skipped: {f.path}" for f in inventory if f.is_binary and f.size > 0
@@ -160,8 +168,6 @@ class AnalysisPipeline:
 
         # 8b. Opt-in logic capture (bounded source-of-record for function
         # bodies). Runs after APIs + workflows so priority names are known.
-        from app.core.config import get_settings
-
         lc_settings = get_settings()
         analyzer_ctx["logic_capture_settings"] = {
             "enabled": lc_settings.logic_capture_enabled,

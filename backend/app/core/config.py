@@ -43,6 +43,7 @@ class Settings(BaseSettings):
 
     # Analysis limits (security + resource controls)
     max_file_size_bytes: int = 2 * 1024 * 1024  # 2 MB per text file
+    max_repo_size_bytes: int = 512 * 1024 * 1024  # aggregate text-file budget
     max_files_per_analysis: int = 20_000
     max_analysis_depth: int = 3  # 1..3; controls how much deep static analysis is done
     clone_timeout_seconds: int = 600

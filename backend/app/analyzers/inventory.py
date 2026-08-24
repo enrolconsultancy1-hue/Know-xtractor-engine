@@ -178,10 +178,12 @@ class FileInventory:
     def __init__(self, root: str) -> None:
         self.root = Path(root)
         self.settings = get_settings()
+        self.size_limit_exceeded = False
 
     def scan(self) -> list[FileEntry]:
         gitignore = _read_gitignore(self.root)
         entries: list[FileEntry] = []
+        total_size = 0
         for dirpath, dirnames, filenames in os.walk(self.root):
             # Prune ignored directories in-place.
             dirnames[:] = [
@@ -203,6 +205,12 @@ class FileInventory:
                     size = fpath.stat().st_size
                 except OSError:
                     continue
+                total_size += size
+                if total_size > self.settings.max_repo_size_bytes:
+                    # Aggregate budget exhausted: stop scanning entirely so a
+                    # huge repository cannot exhaust memory or analysis time.
+                    self.size_limit_exceeded = True
+                    return entries
                 category, language, is_binary = classify_file(fpath, size)
                 if size > self.settings.max_file_size_bytes:
                     # Oversized: skip content but record for reporting.

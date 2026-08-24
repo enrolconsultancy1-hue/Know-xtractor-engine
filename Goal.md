@@ -30,6 +30,7 @@ Definition of Done (DoD) is satisfied and the terminal test command passes.
 - [x] Postgres support via `KNOX_DATABASE_URL` (psycopg driver) with SQLite as the dev fallback
 - [x] CORS allowlist (`KNOX_CORS_ORIGINS`), not `*`
 - [x] Resource limits: max repo size, max file size, max files, clone depth, analysis timeout
+  (`KNOX_MAX_REPO_SIZE_BYTES` enforces an aggregate text-file budget in `FileInventory.scan`)
 - [x] Secret redaction: never write secrets into exports/logs (audit + unit test)
 
 **DoD:** `KNOX_DATABASE_URL` pointing at Postgres boots and migrates; `.env.example` is the
@@ -143,7 +144,7 @@ curl https://localhost/healthz   # or http://localhost:8000/healthz
 - [x] `.github/workflows/ci.yml` — pytest + ruff + mypy + frontend build
 - [x] Coverage gate (e.g. `pytest --cov` with a floor)
 - [x] Dependency audit (pip-audit, npm audit) in CI
-- [ ] (optional) Docker image build/push job — not implemented (optional)
+- [x] Docker image build job — builds backend + frontend images on every push/PR (push to a registry left to the operator)
 
 **DoD:** a PR that breaks tests/lint/types/build is blocked.
 
