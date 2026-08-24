@@ -63,6 +63,15 @@ uvicorn app.main:app --reload --port 8000
 
 Open http://localhost:8000/docs for the interactive API.
 
+New to KNOX? Run the guided helper:
+
+```bash
+python -m app.cli            # step-by-step install & use guide
+python -m app.cli doctor     # verify this machine is ready (with fix hints)
+```
+
+The web UI also ships a built-in **Help** page with the same walkthrough.
+
 ### Frontend
 
 ```bash

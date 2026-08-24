@@ -8,7 +8,8 @@ export type PageKey =
   | "knowledge"
   | "sprints"
   | "designer"
-  | "prompt";
+  | "prompt"
+  | "help";
 
 const ITEMS: { key: PageKey; label: string }[] = [
   { key: "dashboard", label: "Dashboard" },
@@ -19,6 +20,7 @@ const ITEMS: { key: PageKey; label: string }[] = [
   { key: "sprints", label: "Sprints" },
   { key: "designer", label: "Implementation" },
   { key: "prompt", label: "Prompt" },
+  { key: "help", label: "Help" },
 ];
 
 export default function Sidebar({

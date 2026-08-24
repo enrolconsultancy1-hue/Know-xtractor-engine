@@ -8,6 +8,7 @@ import KnowledgeExplorer from "./pages/knowledgeexplorer";
 import SprintTimeline from "./pages/sprinttimeline";
 import ImplementationDesigner from "./pages/implementationdesigner";
 import PromptGenerator from "./pages/promptgenerator";
+import Help from "./pages/help";
 
 export interface ProjectCtx {
   id: number;
@@ -40,7 +41,8 @@ export default function App() {
         {page === "sprints" && project && <SprintTimeline project={project} />}
         {page === "designer" && project && <ImplementationDesigner project={project} />}
         {page === "prompt" && project && <PromptGenerator project={project} />}
-        {!project && page !== "dashboard" && page !== "new" && (
+        {page === "help" && <Help />}
+        {!project && page !== "dashboard" && page !== "new" && page !== "help" && (
           <div className="card">
             <h2>No project selected</h2>
             <p className="subtitle">Pick a project from the Dashboard or start a New Analysis.</p>
