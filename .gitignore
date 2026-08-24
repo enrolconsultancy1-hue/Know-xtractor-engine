@@ -36,3 +36,4 @@ Thumbs.db
 .idea/
 .vscode/
 *.log
+frontend/tsconfig.tsbuildinfo
