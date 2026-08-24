@@ -165,9 +165,10 @@ class LogicCaptureAnalyzer(BaseAnalyzer):
                     visit(child, in_class=True)
                 elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     total += 1
-                    span = child.end_lineno - child.lineno + 1  # type: ignore[attr-defined]
+                    end = child.end_lineno or child.lineno
+                    span = end - child.lineno + 1
                     if span <= max_lines:
-                        body_text = "\n".join(lines[child.lineno - 1: child.end_lineno])  # type: ignore[attr-defined]
+                        body_text = "\n".join(lines[child.lineno - 1: end])  # type: ignore[attr-defined]
                         out.append({
                             "name": child.name,
                             "kind": "method" if in_class else "function",
@@ -186,7 +187,7 @@ class LogicCaptureAnalyzer(BaseAnalyzer):
     ) -> tuple[list[dict[str, Any]], int]:
         """Extract function bodies via tree-sitter node byte spans."""
         try:
-            parser = get_parser(_TS_LANGUAGES[language])
+            parser = get_parser(_TS_LANGUAGES[language])  # type: ignore[arg-type]
             tree = parser.parse(source.encode("utf-8"))
         except Exception:  # noqa: BLE001 — grammar or parse failure
             return [], 0

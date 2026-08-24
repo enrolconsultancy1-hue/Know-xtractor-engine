@@ -67,11 +67,11 @@ def to_markdown(pkg: KnowledgePackage) -> str:
         lines.append("")
         lines.append(f"> ⚠️ {pkg.logic_capture.warning}")
         lines.append("")
-        for c in pkg.logic_capture.captured:
-            lines.append(f"### `{c.name}` — {c.path}:{c.line} ({c.kind})")
+        for fn in pkg.logic_capture.captured:
+            lines.append(f"### `{fn.name}` — {fn.path}:{fn.line} ({fn.kind})")
             lines.append("")
-            lines.append(f"```{c.language}")
-            lines.append(c.body)
+            lines.append(f"```{fn.language}")
+            lines.append(fn.body)
             lines.append("```")
 
     lines.append("\n## Risks")
