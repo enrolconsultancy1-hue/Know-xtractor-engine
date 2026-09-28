@@ -9,6 +9,7 @@ export type PageKey =
   | "sprints"
   | "designer"
   | "prompt"
+  | "settings"
   | "help";
 
 const ITEMS: { key: PageKey; label: string }[] = [
@@ -20,6 +21,7 @@ const ITEMS: { key: PageKey; label: string }[] = [
   { key: "sprints", label: "Sprints" },
   { key: "designer", label: "Implementation" },
   { key: "prompt", label: "Prompt" },
+  { key: "settings", label: "Settings / Auth" },
   { key: "help", label: "Help" },
 ];
 

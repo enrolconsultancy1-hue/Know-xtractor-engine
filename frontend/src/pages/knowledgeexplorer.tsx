@@ -17,7 +17,7 @@ export default function KnowledgeExplorer({ project }: { project: ProjectCtx }) 
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
         {TABS.map((t) => (
-          <button key={t} className={`btn ${tab === t ? "" : "secondary"}`} onClick={() => setTab(t)}>{t}</button>
+          <button key={t} className={`btn ${tab === t ? "" : "btn-secondary"}`} onClick={() => setTab(t)}>{t}</button>
         ))}
       </div>
 

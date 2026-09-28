@@ -40,9 +40,9 @@ export default function RepositoryExplorer({
       <p className="subtitle">{String(pkg.metadata.repository || "")} · {String(pkg.metadata.source_url || "")}</p>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-        <button className="btn secondary" onClick={() => setPage("architecture")}>Architecture →</button>
-        <button className="btn secondary" onClick={() => setPage("knowledge")}>Knowledge →</button>
-        <button className="btn secondary" onClick={() => setPage("sprints")}>Sprints →</button>
+        <button className="btn btn-secondary" onClick={() => setPage("architecture")}>Architecture →</button>
+        <button className="btn btn-secondary" onClick={() => setPage("knowledge")}>Knowledge →</button>
+        <button className="btn btn-secondary" onClick={() => setPage("sprints")}>Sprints →</button>
       </div>
 
       <div className="grid cols-3">

@@ -8,6 +8,10 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+# Install git (required for repository acquisition and git history analysis)
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install runtime dependencies first for better layer caching.
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
@@ -19,8 +23,11 @@ COPY app ./app
 
 # Run as a non-root user and make /app writable for runtime data dirs.
 RUN useradd --create-home --uid 10001 knox \
+    && mkdir -p /app/data /app/knowledge_packages /app/exports /app/analysis_workspace \
     && chown -R knox:knox /app
 USER knox
+
+VOLUME ["/app/data", "/app/knowledge_packages", "/app/exports", "/app/analysis_workspace"]
 
 EXPOSE 8000
 

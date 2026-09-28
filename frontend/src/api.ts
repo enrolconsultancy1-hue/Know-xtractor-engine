@@ -3,14 +3,39 @@
 import type { AnalysisStatus, Graph, KnowledgePackage, Project } from "./types";
 
 const BASE = "/api";
+const TOKEN_KEY = "knox_api_token";
+
+export function getAuthToken(): string {
+  return localStorage.getItem(TOKEN_KEY) || "";
+}
+
+export function setAuthToken(token: string): void {
+  if (token && token.trim()) {
+    localStorage.setItem(TOKEN_KEY, token.trim());
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+  }
+}
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(init?.headers as Record<string, string>),
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...init,
+    headers,
   });
   if (!res.ok) {
     const text = await res.text();
+    if (res.status === 401) {
+      throw new Error(`401 Unauthorized: Invalid or missing API key. Set your Bearer token in Settings / API Key.`);
+    }
     throw new Error(`${res.status}: ${text.slice(0, 300)}`);
   }
   return res.json() as Promise<T>;

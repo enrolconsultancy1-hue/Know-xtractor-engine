@@ -93,6 +93,14 @@ class AnalysisQueue:
                 self._q.task_done()
 
 
-# Singleton used by the runner. Swap this for an RQ/Celery-backed implementation
-# in production.
-default_queue = AnalysisQueue(max_workers=get_settings().max_workers)
+def _build_default_queue():
+    """Return the correct queue backend based on the QUEUE_BACKEND setting."""
+    settings = get_settings()
+    if settings.queue_backend == "rq":
+        from app.services.rq_queue import RQQueue  # lazy import — avoids redis dep when unused
+
+        return RQQueue()
+    return AnalysisQueue(max_workers=settings.max_workers)
+
+
+default_queue = _build_default_queue()

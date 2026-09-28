@@ -34,6 +34,29 @@ _lock = threading.Lock()
 
 
 def run_state(run_id: int) -> dict[str, Any]:
+    """Return live status for *run_id*.
+
+    In in-process mode the in-memory dict is the ground truth.
+    In RQ mode the API process never runs the analysis, so we always read from
+    the DB which the worker keeps updated via ``_persist_progress`` / ``_finish``.
+    """
+    if get_settings().queue_backend == "rq":
+        db = SessionLocal()
+        try:
+            run = db.get(AnalysisRun, run_id)
+            if run is None:
+                return {"status": "unknown", "stage": "", "progress": 0.0}
+            return {
+                "status": run.status,
+                "stage": run.stage or "",
+                "progress": float(run.progress or 0.0),
+                "errors": list(run.errors or []),
+                "warnings": list(run.warnings or []),
+                "summary": run.summary or {},
+                "events": [],  # per-event SSE is only supported by in-process backend
+            }
+        finally:
+            db.close()
     return dict(_runs.get(run_id, {"status": "unknown", "stage": "", "progress": 0.0}))
 
 
@@ -163,7 +186,8 @@ def cancel_analysis(run_id: int) -> bool:
         from app.services.rq_queue import rq_queue
 
         rq_queue.cancel(run_id)
-    default_queue.cancel(run_id)
+    else:
+        default_queue.cancel(run_id)
     _update(run_id, status="cancelled", stage="cancelled")
     return True
 

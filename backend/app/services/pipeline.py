@@ -207,7 +207,7 @@ class AnalysisPipeline:
         )
 
         cb("architecture_reconstruction", 0.98, "Reconstructing architecture")
-        ctx.pkg.reconstructed_architecture = ctx.pkg.reconstructed_architecture or ctx.pkg.reconstructed_architecture
+        # Architecture is already stored on ctx.pkg by assemble_knowledge.
 
         cb("done", 1.0, "Analysis complete")
         return ctx.pkg

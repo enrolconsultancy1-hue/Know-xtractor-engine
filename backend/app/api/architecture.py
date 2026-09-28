@@ -5,6 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.api.auth import require_auth
+from app.api.deps import require_rate_limit
 from app.db import get_session
 from app.db.models import Project
 from app.domain.architecture import CustomizationRequest
@@ -13,6 +15,14 @@ from app.services.exporter import to_json, to_markdown, to_yaml
 from app.services.runner import load_package
 
 router = APIRouter(prefix="/projects/{project_id}", tags=["architecture"])
+
+# Mutating architecture operations require auth + rate-limiting at the router level.
+# This ensures the 401 is always returned before any handler logic runs.
+_write_router = APIRouter(
+    prefix="/projects/{project_id}",
+    tags=["architecture"],
+    dependencies=[Depends(require_auth), Depends(require_rate_limit)],
+)
 
 
 def _load_pkg(project_id: int, session: Session) -> KnowledgePackage:
@@ -24,8 +34,12 @@ def _load_pkg(project_id: int, session: Session) -> KnowledgePackage:
     return KnowledgePackage.model_validate(data)
 
 
-@router.post("/architecture/customize")
-def customize(project_id: int, req: CustomizationRequest, session: Session = Depends(get_session)) -> dict:
+@_write_router.post("/architecture/customize")
+def customize(
+    project_id: int,
+    req: CustomizationRequest,
+    session: Session = Depends(get_session),
+) -> dict:
     pkg = _load_pkg(project_id, session)
     from app.architecture.customization import customize_architecture
     from app.services.knowledge_extractor import build_implementation_spec
@@ -44,9 +58,12 @@ def customize(project_id: int, req: CustomizationRequest, session: Session = Dep
     }
 
 
-@router.post("/implementation-prompt")
-def implementation_prompt(project_id: int, req: CustomizationRequest | None = None,
-                          session: Session = Depends(get_session)) -> dict:
+@_write_router.post("/implementation-prompt")
+def implementation_prompt(
+    project_id: int,
+    req: CustomizationRequest | None = None,
+    session: Session = Depends(get_session),
+) -> dict:
     pkg = _load_pkg(project_id, session)
     if req:
         from app.architecture.customization import customize_architecture

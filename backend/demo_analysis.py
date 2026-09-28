@@ -7,7 +7,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app.services.pipeline import AnalysisPipeline, PipelineContext
 
-TARGET = r"C:\Users\HP\Projects\knox"
+# Repository to analyse: pass as the first CLI argument, or set KNOX_DEMO_TARGET.
+# Example:
+#   python demo_analysis.py /path/to/repo
+#   KNOX_DEMO_TARGET=/path/to/repo python demo_analysis.py
+TARGET = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("KNOX_DEMO_TARGET", ".")
+if not os.path.isdir(TARGET):
+    sys.exit(f"error: target directory does not exist: {TARGET!r}\n"
+             "Usage: python demo_analysis.py <repo_path>")
 
 
 def main() -> None:

@@ -38,6 +38,10 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
+    volumes:
+      - knox_packages:/app/knowledge_packages
+      - knox_exports:/app/exports
+      - knox_workspace:/app/analysis_workspace
 
   worker:
     build: ./backend
@@ -47,6 +51,10 @@ services:
       KNOX_DATABASE_URL: postgresql+psycopg://knox:${POSTGRES_PASSWORD}@db:5432/knox
       KNOX_REDIS_URL: redis://redis:6379/0
       KNOX_QUEUE_BACKEND: rq
+    volumes:
+      - knox_packages:/app/knowledge_packages
+      - knox_exports:/app/exports
+      - knox_workspace:/app/analysis_workspace
     depends_on:
       db:
         condition: service_healthy
@@ -62,3 +70,6 @@ services:
 
 volumes:
   pgdata:
+  knox_packages:
+  knox_exports:
+  knox_workspace:

@@ -31,7 +31,7 @@ export default function PromptGenerator({ project }: { project: ProjectCtx }) {
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <button className="btn" onClick={copy}>{copied ? "Copied ✓" : "Copy"}</button>
         <button
-          className="btn secondary"
+          className="btn btn-secondary"
           onClick={() => {
             const blob = new Blob([prompt], { type: "text/markdown" });
             const url = URL.createObjectURL(blob);

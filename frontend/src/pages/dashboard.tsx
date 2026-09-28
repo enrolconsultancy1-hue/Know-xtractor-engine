@@ -48,7 +48,7 @@ export default function Dashboard({ openProject }: { openProject: (p: ProjectCtx
                   <td>{statusBadge(p.last_run_status)}</td>
                   <td>{(p.summary as any)?.primary_pattern || "—"}</td>
                   <td>
-                    <button className="btn secondary" onClick={() => openProject({ id: p.id, name: p.name }, "repository")}>
+                    <button className="btn btn-secondary" onClick={() => openProject({ id: p.id, name: p.name }, "repository")}>
                       Open
                     </button>
                   </td>

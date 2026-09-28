@@ -113,6 +113,7 @@ def create_app() -> FastAPI:
     app.include_router(analysis.router, prefix=prefix)
     app.include_router(knowledge.router, prefix=prefix)
     app.include_router(architecture.router, prefix=prefix)
+    app.include_router(architecture._write_router, prefix=prefix)
 
     @app.get(f"{prefix}/health")
     def health() -> dict:
