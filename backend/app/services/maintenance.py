@@ -28,9 +28,9 @@ def cleanup_stale_workspaces(max_age_days: int | None = None) -> int:
     cutoff = time.time() - (max_age_days * 86400)
     removed = 0
     for child in workspace.iterdir():
-        if not child.is_dir():
-            continue
         try:
+            if not child.is_dir():
+                continue
             if child.stat().st_mtime < cutoff:
                 shutil.rmtree(child, ignore_errors=True)
                 if not child.exists():
@@ -38,3 +38,4 @@ def cleanup_stale_workspaces(max_age_days: int | None = None) -> int:
         except OSError:
             continue
     return removed
+

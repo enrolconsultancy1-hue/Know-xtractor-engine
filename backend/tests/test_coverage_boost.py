@@ -232,13 +232,21 @@ class TestMaintenance:
         from app.services.maintenance import cleanup_stale_workspaces
         bad_dir = tmp_path / "broken"
         bad_dir.mkdir()
+        orig_stat = Path.stat
+
+        def fake_stat(self, *args, **kwargs):
+            if getattr(self, "name", "") == "broken":
+                raise OSError("permission denied")
+            return orig_stat(self, *args, **kwargs)
+
         with (
             patch("app.services.maintenance.get_settings") as ms,
-            patch.object(Path, "stat", side_effect=OSError("permission denied")),
+            patch.object(Path, "stat", fake_stat),
         ):
             ms.return_value.workspace_dir = tmp_path
             result = cleanup_stale_workspaces(max_age_days=1)
         assert result == 0  # silently skipped
+
 
 
 # ===========================================================================
