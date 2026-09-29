@@ -31,5 +31,9 @@ VOLUME ["/app/data", "/app/knowledge_packages", "/app/exports", "/app/analysis_w
 
 EXPOSE 8000
 
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/readyz')" || exit 1
+
 # Apply migrations, then serve (exec keeps uvicorn as PID 1 for clean signals).
 CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+

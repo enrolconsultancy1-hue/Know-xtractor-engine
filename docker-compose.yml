@@ -42,6 +42,12 @@ services:
       - knox_packages:/app/knowledge_packages
       - knox_exports:/app/exports
       - knox_workspace:/app/analysis_workspace
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/readyz')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   worker:
     build: ./backend
@@ -66,7 +72,9 @@ services:
     ports:
       - "8080:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+
 
 volumes:
   pgdata:

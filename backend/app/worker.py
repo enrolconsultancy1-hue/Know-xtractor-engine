@@ -23,7 +23,15 @@ def execute_task(task: dict, run_id: int) -> None:
 
 
 if __name__ == "__main__":
+    import logging
+
+    from app.core.logging import setup_logging
+
+    setup_logging()
+    logger = logging.getLogger("knox.worker")
     settings = get_settings()
+    logger.info("starting RQ worker on %s", settings.redis_url)
     conn = redis.from_url(settings.redis_url)
     worker = Worker([Queue("knox", connection=conn)], connection=conn)
     worker.work()
+

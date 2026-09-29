@@ -35,23 +35,94 @@ export function useAnalysisPoll(analysisId: number | null) {
   useEffect(() => {
     if (!analysisId) return;
     let cancelled = false;
-    const poll = async () => {
+    let es: EventSource | null = null;
+
+    const fallbackPoll = () => {
+      if (cancelled) return;
+      const poll = async () => {
+        try {
+          const s = await api.getAnalysis(analysisId);
+          if (!cancelled) setStatus(s);
+          if (s && !["done", "failed", "cancelled"].includes(s.status)) {
+            timer.current = window.setTimeout(poll, 1200);
+          }
+        } catch {
+          if (!cancelled) timer.current = window.setTimeout(poll, 2500);
+        }
+      };
+      poll();
+    };
+
+    const startStream = () => {
+      if (typeof EventSource === "undefined") {
+        fallbackPoll();
+        return;
+      }
+
+      try {
+        es = new EventSource(`/api/analysis/${analysisId}/stream`);
+
+        const handleUpdate = (ev: MessageEvent) => {
+          if (cancelled) return;
+          try {
+            const data = JSON.parse(ev.data);
+            setStatus((prev) => ({
+              id: analysisId,
+              project_id: prev?.project_id ?? 0,
+              status: data.status,
+              stage: data.stage ?? prev?.stage ?? "",
+              progress: data.progress ?? prev?.progress ?? 0.0,
+              errors: data.errors ?? prev?.errors ?? [],
+              warnings: prev?.warnings ?? [],
+              summary: data.summary ?? prev?.summary ?? null,
+            }));
+            if (["done", "failed", "cancelled"].includes(data.status)) {
+              es?.close();
+            }
+          } catch {
+            /* ignore parse error */
+          }
+        };
+
+        es.addEventListener("progress", handleUpdate);
+        es.addEventListener("status", handleUpdate);
+        es.addEventListener("done", (ev) => {
+          handleUpdate(ev);
+          es?.close();
+        });
+
+        es.onerror = () => {
+          es?.close();
+          es = null;
+          fallbackPoll();
+        };
+      } catch {
+        fallbackPoll();
+      }
+    };
+
+    const fetchInitial = async () => {
       try {
         const s = await api.getAnalysis(analysisId);
         if (!cancelled) setStatus(s);
-        if (s && !["done", "failed", "cancelled"].includes(s.status)) {
-          timer.current = window.setTimeout(poll, 1200);
+        if (s && ["done", "failed", "cancelled"].includes(s.status)) {
+          return;
         }
+        startStream();
       } catch {
-        /* ignore transient */
+        fallbackPoll();
       }
     };
-    poll();
+
+    fetchInitial();
+
     return () => {
       cancelled = true;
+      if (es) es.close();
       if (timer.current) window.clearTimeout(timer.current);
     };
   }, [analysisId]);
 
   return status;
 }
+
