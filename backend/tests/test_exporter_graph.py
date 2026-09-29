@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from app.domain.knowledge import KnowledgePackage
 from app.knowledge.graph import build_knowledge_graph
 from app.services.exporter import export_package, to_json, to_markdown, to_yaml
