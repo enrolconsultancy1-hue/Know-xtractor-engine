@@ -1,4 +1,4 @@
-﻿"""Tests for the knowledge graph builder and export functions."""
+"""Tests for the knowledge graph builder and export functions."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 
 from app.domain.knowledge import KnowledgePackage
 from app.knowledge.graph import build_knowledge_graph
-from app.services.exporter import export_package, to_json, to_markdown, to_yaml
+from app.services.exporter import export_package, to_json, to_markdown, to_pdf, to_yaml
 
 
 def _empty_pkg() -> KnowledgePackage:
@@ -69,3 +69,18 @@ def test_export_package_yaml(tmp_path: Path):
     export_package(pkg, "yaml", tmp_path)
     files = list(tmp_path.glob("*.yaml")) + list(tmp_path.glob("*.yml"))
     assert files, "No YAML export file created"
+
+
+def test_to_pdf():
+    pkg = _empty_pkg()
+    pdf_bytes = to_pdf(pkg)
+    assert isinstance(pdf_bytes, bytes)
+    assert pdf_bytes.startswith(b"%PDF")
+
+
+def test_export_package_pdf(tmp_path: Path):
+    pkg = _empty_pkg()
+    export_package(pkg, "pdf", tmp_path)
+    files = list(tmp_path.glob("*.pdf"))
+    assert files, "No PDF export file created"
+

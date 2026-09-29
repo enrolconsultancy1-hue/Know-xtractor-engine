@@ -29,11 +29,11 @@ _EXPORT_RE = re.compile(
     r"export\s+(?:default\s+)?(?:function|class|const|let|var)\s+([A-Za-z_$][\w$]*)", re.M
 )
 _FUNCTION_RE = re.compile(
-    r"(?:function\s+([A-Za-z_$][\w$]*)|(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>)", re.M
+    r"(?:export\s+(?:default\s+)?)?(?:function\s+([A-Za-z_$][\w$]*)|(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>)", re.M
 )
-_CLASS_RE = re.compile(r"class\s+([A-Za-z_$][\w$]*)\s*(?:extends\s+([A-Za-z_$][\w$]*))?", re.M)
+_CLASS_RE = re.compile(r"(?:export\s+(?:default\s+)?)?class\s+([A-Za-z_$][\w$]*)\s*(?:extends\s+([A-Za-z_$][\w$]*))?", re.M)
 _COMPONENT_RE = re.compile(
-    r"(?:function|const)\s+([A-Z][A-Za-z0-9_$]*)\s*(?:\([^)]*\)\s*=>|\()", re.M
+    r"(?:export\s+(?:default\s+)?)?(?:function|const)\s+([A-Z][A-Za-z0-9_$]*)\s*(?:=\s*(?:async\s*)?\([^)]*\)\s*=>|\()", re.M
 )
 _HOOK_RE = re.compile(r"\b(use[A-Z][A-Za-z0-9_$]*)\s*\(", re.M)
 _ROUTE_RE = re.compile(
@@ -84,8 +84,12 @@ class JavaScriptAnalyzer(BaseAnalyzer):
         # React components: PascalCase function/const declarations.
         for m in _COMPONENT_RE.finditer(source):
             name = m.group(1)
-            if name and name[0].isupper() and name not in {s.name for s in module.symbols}:
-                module.symbols.append(Symbol(name=name, kind=SymbolKind.COMPONENT, path=rel))
+            if name and name[0].isupper():
+                existing = next((s for s in module.symbols if s.name == name), None)
+                if existing:
+                    existing.kind = SymbolKind.COMPONENT
+                else:
+                    module.symbols.append(Symbol(name=name, kind=SymbolKind.COMPONENT, path=rel))
 
         for m in _HOOK_RE.finditer(source):
             module.calls.append(m.group(1))

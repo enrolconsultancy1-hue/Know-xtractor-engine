@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import patch
 
 from app.domain.common import Confidence
@@ -136,3 +137,38 @@ def test_analysis_endpoints(client):
     events_resp = client.get(f"/api/analysis/{aid}/events")
     assert events_resp.status_code == 200
     assert "status" in events_resp.json()
+
+
+def test_customize_and_prompt_endpoints(client, tmp_path: Path):
+    created = client.post("/api/projects", json={"repository_url": "https://github.com/example/arch-test.git"})
+    pid = created.json()["id"]
+
+    pkg = _make_sample_pkg()
+    pkg_dict = pkg.model_dump(mode="json")
+    dummy_pkg_path = tmp_path / f"project_{pid}.json"
+
+    with patch("app.api.architecture.load_package", return_value=pkg_dict), \
+         patch("app.services.runner.package_path", return_value=dummy_pkg_path):
+
+        # Customize architecture
+        cust_resp = client.post(
+            f"/api/projects/{pid}/architecture/customize",
+            json={"backend_technology": "Go", "database": "PostgreSQL"},
+        )
+        assert cust_resp.status_code == 200
+        assert "reconstructed_architecture" in cust_resp.json()
+        assert "implementation_specification" in cust_resp.json()
+
+        # Implementation prompt with customization request
+        prompt_resp = client.post(
+            f"/api/projects/{pid}/implementation-prompt",
+            json={"frontend_technology": "Vue"},
+        )
+        assert prompt_resp.status_code == 200
+        assert "prompt" in prompt_resp.json()
+
+        # Implementation prompt without customization request
+        prompt_resp2 = client.post(f"/api/projects/{pid}/implementation-prompt", json={})
+        assert prompt_resp2.status_code == 200
+        assert "prompt" in prompt_resp2.json()
+

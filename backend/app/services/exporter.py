@@ -89,21 +89,24 @@ def to_pdf(pkg: KnowledgePackage) -> bytes:
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, f"KNOX Knowledge Package: {pkg.metadata.get('repository', '')}", ln=True)
+    pdf.cell(pdf.epw, 10, f"KNOX Knowledge Package: {pkg.metadata.get('repository', '')}", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 10)
     for line in to_markdown(pkg).splitlines():
-        if line.startswith("# "):
+        trimmed = line.strip()
+        if not trimmed:
+            pdf.ln(3)
+            continue
+        if trimmed.startswith("# "):
             pdf.set_font("Helvetica", "B", 13)
-            pdf.cell(0, 8, line.lstrip("# ").strip(), ln=True)
+            pdf.cell(pdf.epw, 8, trimmed.lstrip("# ").strip(), new_x="LMARGIN", new_y="NEXT")
             pdf.set_font("Helvetica", "", 9)
-        elif line.startswith("## "):
+        elif trimmed.startswith("## "):
             pdf.set_font("Helvetica", "B", 11)
-            pdf.cell(0, 7, line.lstrip("# ").strip(), ln=True)
+            pdf.cell(pdf.epw, 7, trimmed.lstrip("# ").strip(), new_x="LMARGIN", new_y="NEXT")
             pdf.set_font("Helvetica", "", 9)
         else:
-            # Wrap long lines.
-            safe = line.encode("latin-1", "replace").decode("latin-1")
-            pdf.multi_cell(0, 5, safe[:200])
+            safe = trimmed.encode("latin-1", "replace").decode("latin-1")
+            pdf.multi_cell(pdf.epw, 5, safe[:200], new_x="LMARGIN", new_y="NEXT")
     return bytes(pdf.output())
 
 

@@ -159,3 +159,23 @@ def test_section_roundtrips_through_pydantic(tmp_path):
     assert "LOGIC CAPTURE ENABLED" in section.warning
     dumped = section.model_dump_json()
     assert "LOGIC CAPTURE ENABLED" in dumped
+
+
+def test_logic_capture_treesitter_languages(tmp_path):
+    go_file = tmp_path / "service.go"
+    go_file.write_text(
+        "package main\n\nfunc CalculateTax(amount float64) float64 {\n    return amount * 0.2\n}\n",
+        encoding="utf-8",
+    )
+    from app.analyzers.inventory import FileInventory
+    files = FileInventory(str(tmp_path)).scan()
+    ctx = {
+        "logic_capture_settings": _SETTINGS_ON,
+        "apis": None,
+        "data_models": None,
+        "secrets": [],
+    }
+    result = LogicCaptureAnalyzer().analyze(str(tmp_path), files, SourceGraph(), ctx)
+    captured = result["section"]["captured"]
+    assert any(c["name"] == "CalculateTax" and c["language"] == "go" for c in captured)
+

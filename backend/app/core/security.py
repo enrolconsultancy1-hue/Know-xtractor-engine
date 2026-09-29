@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any, MutableMapping
+
 
 # Patterns that look like secrets we must never persist.
 _SECRET_PATTERNS: list[tuple[str, str]] = [
@@ -104,3 +106,20 @@ def redact_secrets(text: str) -> str:
                 )
             )
     return "\n".join(out)
+
+
+SECURITY_HEADERS: dict[str, str] = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "X-XSS-Protection": "1; mode=block",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), camera=(), microphone=()",
+}
+
+
+def apply_security_headers(headers: MutableMapping[str, str] | Any) -> None:
+    """Apply standard defensive security headers to a response headers collection."""
+    for key, value in SECURITY_HEADERS.items():
+        headers[key] = value
+
+

@@ -104,7 +104,11 @@ def create_app() -> FastAPI:
         request_id_var.reset(token)
         _record_request(request, started, str(response.status_code))
         response.headers["X-Request-ID"] = request_id
+        from app.core.security import apply_security_headers
+
+        apply_security_headers(response.headers)
         return response
+
 
     from app.api import analysis, architecture, knowledge, projects
 
