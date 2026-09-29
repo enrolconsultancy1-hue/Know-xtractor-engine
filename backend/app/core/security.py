@@ -8,9 +8,9 @@ causing harm during *static* analysis. KNOX never executes repository code.
 from __future__ import annotations
 
 import re
+from collections.abc import MutableMapping
 from pathlib import Path
-from typing import Any, MutableMapping
-
+from typing import Any
 
 # Patterns that look like secrets we must never persist.
 _SECRET_PATTERNS: list[tuple[str, str]] = [
