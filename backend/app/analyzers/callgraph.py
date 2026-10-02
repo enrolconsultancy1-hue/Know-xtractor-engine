@@ -76,10 +76,13 @@ class CallGraph:
         self.graph = graph
         self._by_id: dict[str, Symbol] = {}
         self._by_short: dict[str, list[Symbol]] = {}
+        self._by_file_and_short: dict[tuple[str, str], list[Symbol]] = {}
         for module in graph.modules.values():
             for sym in module.symbols:
-                self._by_id[self.symbol_id(sym)] = sym
+                sid = self.symbol_id(sym)
+                self._by_id[sid] = sym
                 self._by_short.setdefault(sym.name, []).append(sym)
+                self._by_file_and_short.setdefault((sym.path, sym.name), []).append(sym)
         self._edges: dict[str, list[tuple[str, CallKind, str | None]]] = {}
         self._build()
 
@@ -106,7 +109,7 @@ class CallGraph:
         """Resolve a call name to a symbol id, or None if ambiguous/unresolved."""
         short = name.split(".")[-1]
         # Prefer a same-file match.
-        same_file = [s for s in self._by_short.get(short, []) if s.path == path]
+        same_file = self._by_file_and_short.get((path, short), [])
         if len(same_file) == 1:
             return self.symbol_id(same_file[0])
         global_matches = self._by_short.get(short, [])

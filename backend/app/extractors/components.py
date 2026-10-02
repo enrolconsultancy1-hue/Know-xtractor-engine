@@ -79,14 +79,21 @@ class ComponentExtractor:
         return out
 
     def _link(self, components: list[Component]) -> list[Component]:
-        """Populate `consumers` by reversing dependencies."""
+        """Populate `consumers` by reversing dependencies in O(N) time."""
+        dep_to_consumers: dict[str, set[str]] = {}
+        for other in components:
+            for dep in other.dependencies:
+                dep_to_consumers.setdefault(dep, set()).add(other.name)
+
         for c in components:
-            c.consumers = sorted({
-                other.name
-                for other in components
-                if c.name in other.dependencies or c.id.split(":")[-1] in other.dependencies
-                if other.id != c.id
-            })
+            consumers: set[str] = set()
+            if c.name in dep_to_consumers:
+                consumers.update(dep_to_consumers[c.name])
+            short_id = c.id.split(":")[-1]
+            if short_id in dep_to_consumers:
+                consumers.update(dep_to_consumers[short_id])
+            consumers.discard(c.name)
+            c.consumers = sorted(consumers)
         return components
 
     @staticmethod
