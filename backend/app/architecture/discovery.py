@@ -32,8 +32,11 @@ class ArchitectureDiscoverer:
         modules = list(self.graph.modules.values())
         module_count = len(modules)
         entry_points = [
-            m.path for m in modules if m.path.split("/")[-1] in
-            {"main.py", "app.py", "index.py", "manage.py", "run.py", "wsgi.py", "asgi.py"}
+            m.path for m in modules if m.path.split("/")[-1] in {
+                "main.py", "app.py", "index.py", "manage.py", "run.py", "wsgi.py", "asgi.py",
+                "index.js", "index.ts", "main.js", "main.ts", "vite.config.js", "vite.config.ts",
+                "local.js",
+            }
         ]
         report.entry_points = entry_points
 
@@ -47,6 +50,12 @@ class ArchitectureDiscoverer:
         has_domain = any(c.architectural_layer == "domain" for c in self.components)
         has_persistence = any(c.architectural_layer == "persistence" for c in self.components)
         has_background = any(c.architectural_layer == "background" for c in self.components)
+        has_providers = any(c.architectural_layer == "provider" for c in self.components)
+        provider_count = sum(1 for c in self.components if c.architectural_layer == "provider")
+        proxy_service_count = sum(
+            1 for c in self.components
+            if c.type == ComponentType.SERVICE and c.name.endswith(("Proxy", "Plugin", "Provider"))
+        )
 
         # Pattern scoring.
         patterns: list[ArchitecturePattern] = []
@@ -112,6 +121,26 @@ class ArchitectureDiscoverer:
                 evidence=["no clear architectural signals detected"],
             ))
 
+        # Plugin / Provider architecture: Vite plugin-based data-broker pattern
+        # (e.g. gods-eye-view: N provider modules each exporting a *Proxy() Vite plugin)
+        if has_providers or proxy_service_count >= 3:
+            plugin_score = self._score([
+                proxy_service_count >= 3,
+                has_providers,
+                has_api,
+                module_count > 5,
+            ])
+            if plugin_score > 0.5:
+                patterns.append(ArchitecturePattern(
+                    name="Plugin / Provider Architecture",
+                    confidence=round(min(plugin_score + 0.1, 1.0), 2),
+                    evidence=[
+                        f"{proxy_service_count} proxy/plugin service(s) detected",
+                        f"{provider_count} provider-layer module(s)",
+                        "Vite dev-server middleware routing" if has_api else "",
+                    ],
+                ))
+
         patterns.sort(key=lambda p: -p.confidence)
         report.patterns = patterns
         report.primary_pattern = patterns[0].name if patterns else ""
@@ -147,6 +176,9 @@ class ArchitectureDiscoverer:
     _ENTRYPOINT_FILES = {
         "main.py", "app.py", "manage.py", "run.py", "index.py",
         "wsgi.py", "asgi.py", "server.py",
+        "index.js", "index.ts", "main.js", "main.ts", "server.js",
+        "vite.config.js", "vite.config.ts",
+        "local.js",
     }
 
     def _count_service_roots(self) -> int:

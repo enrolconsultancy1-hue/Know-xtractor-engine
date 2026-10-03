@@ -39,6 +39,8 @@ _GRAMMAR_BY_LANG = {
 }
 
 _ROUTE_METHODS = {"get", "post", "put", "patch", "delete", "use", "options", "head", "all"}
+# Vite dev-server middleware pattern: middlewares.use('/api/...', handler)
+_VITE_MIDDLEWARE_RE_STR = r"(?:server\.)?middlewares\.(?:use|get|post)\s*\(\s*['\"]([^'\"]+)['\"]"
 
 
 def _text(node, source: str) -> str:
@@ -177,6 +179,24 @@ class TreeSitterJsAnalyzer(BaseAnalyzer):
                         if arg.type == "string":
                             module.calls.append(f"{_text(prop_node, source)} {_unquote(_text(arg, source))}")
                             break
+        # Vite middleware pattern: middlewares.use('/api/foo', ...)
+        fn_text = _text(fn, source) if fn.type != "member_expression" else ""
+        if not fn_text and fn.type == "member_expression":
+            obj_node = fn.child_by_field_name("object")
+            prop_node = fn.child_by_field_name("property")
+            if obj_node is not None and prop_node is not None:
+                obj_text = _text(obj_node, source)
+                prop_text = _text(prop_node, source)
+                # e.g. middlewares.use or server.middlewares.use
+                if "middlewares" in obj_text and prop_text in ("use", "get", "post"):
+                    args = node.child_by_field_name("arguments")
+                    if args is not None:
+                        for arg in args.named_children:
+                            if arg.type == "string":
+                                route = _unquote(_text(arg, source))
+                                if route.startswith("/api") or route.startswith("/"):
+                                    module.calls.append(f"use {route}")
+                                break
 
     # -- helpers -------------------------------------------------------
 

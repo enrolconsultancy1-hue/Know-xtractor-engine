@@ -24,9 +24,17 @@ _PY_INCLUDE_RE = re.compile(
     r"[^)]*?(?:prefix|url_prefix)\s*=\s*[\"']([^\"']+)[\"']"
 )
 
-# JS/TS route registrations: app.get("/x", handler)
+# JS/TS route registrations: app.get("/x", handler) or router.post("/x", ...)
 _JS_ROUTE_RE = re.compile(
     r"(?:app|router|route)\.(get|post|put|patch|delete|use)\s*\(\s*[\"']([^\"']+)[\"']"
+)
+# Vite dev-server middleware: middlewares.use('/api/foo', ...) or server.middlewares.use(...)
+_VITE_MW_RE = re.compile(
+    r"(?:server\.)?middlewares\.(?:use|get|post)\s*\(\s*[\"'](/[^\"']+)[\"']"
+)
+# Proxy factory functions that expose a named API route, e.g. `export function fooBarsProxy()`
+_VITE_PROXY_FN_RE = re.compile(
+    r"(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)Proxy\s*\("
 )
 
 _FRAMEWORK_HINTS = {
@@ -164,6 +172,7 @@ class ApiAnalyzer(BaseAnalyzer):
             else:
                 clean = re.sub(r"//.*", "", source)
                 clean = re.sub(r"/\*.*?\*/", "", clean, flags=re.S)
+                # Standard Express-style routes
                 for m in _JS_ROUTE_RE.finditer(clean):
                     spec.endpoints.append(ApiEndpoint(
                         method=m.group(1), path=m.group(2), handler="", file=f.path,
@@ -172,6 +181,29 @@ class ApiAnalyzer(BaseAnalyzer):
                         evidence=[Evidence(file=f.path, reason="route registration")],
                     ))
                     frameworks.add("Express")
+                # Vite dev-server middleware routes
+                for m in _VITE_MW_RE.finditer(clean):
+                    route = m.group(1)
+                    spec.endpoints.append(ApiEndpoint(
+                        method="use", path=route, handler="", file=f.path,
+                        framework="Vite",
+                        confidence=Confidence(score=0.85, rationale="Vite middleware registration"),
+                        evidence=[Evidence(file=f.path, reason="middlewares.use()")],
+                    ))
+                    frameworks.add("Vite")
+                # Infer API from named *Proxy() factory functions (gods-eye-view provider pattern)
+                for m in _VITE_PROXY_FN_RE.finditer(source):
+                    fn_name = m.group(1)
+                    slug = re.sub(r"([A-Z])", r"-\1", fn_name).lower().lstrip("-")
+                    route = f"/api/{slug}"
+                    spec.endpoints.append(ApiEndpoint(
+                        method="use", path=route, handler=fn_name + "Proxy", file=f.path,
+                        framework="Vite",
+                        description=f"Vite proxy plugin: {fn_name}Proxy()",
+                        confidence=Confidence(score=0.7, rationale="proxy factory convention"),
+                        evidence=[Evidence(file=f.path, symbol=fn_name + "Proxy", reason="*Proxy() export")],
+                    ))
+                    frameworks.add("Vite")
 
         spec.framework = ", ".join(sorted(frameworks)) or ""
         spec.confidence = Confidence(

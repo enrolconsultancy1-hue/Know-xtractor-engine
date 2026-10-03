@@ -8,7 +8,12 @@ from app.domain.api_model import ApiSpec
 from app.domain.common import Confidence, Evidence
 from app.domain.workflow import Workflow, WorkflowStep
 
-_ENTRYPOINT_FILES = {"main.py", "app.py", "index.py", "manage.py", "run.py", "cli.py"}
+_ENTRYPOINT_FILES = {
+    "main.py", "app.py", "index.py", "manage.py", "run.py", "cli.py",
+    "index.js", "index.ts", "main.js", "main.ts", "server.js", "server.ts",
+    "local.js",  # gods-eye-view provider registry
+    "vite.config.js", "vite.config.ts",
+}
 
 
 class WorkflowExtractor:

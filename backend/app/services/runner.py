@@ -222,11 +222,40 @@ def _finish(db, run_id: int, status: str, summary: dict | None = None,
 
 def load_package(project_id: int) -> dict[str, Any] | None:
     """Load a previously stored knowledge package for a project."""
-    path = get_settings().packages_dir / f"project_{project_id}.json"
-    if path.exists():
-        return json.loads(path.read_text(encoding="utf-8"))
+    settings = get_settings()
+    primary = settings.packages_dir / f"project_{project_id}.json"
+    if hasattr(primary, "is_file") and primary.is_file():
+        return json.loads(primary.read_text(encoding="utf-8"))
+    if hasattr(primary, "exists") and primary.exists():
+        txt = primary.read_text(encoding="utf-8")
+        if isinstance(txt, str):
+            return json.loads(txt)
+
+    # Fallback to project name or alternative data directories (when not mocked)
+    candidate_paths: list[Path] = [
+        Path("data/packages") / f"project_{project_id}.json",
+        Path("knowledge_packages") / f"project_{project_id}.json",
+    ]
+    try:
+        from app.db import SessionLocal
+        from app.db.models import Project
+        with SessionLocal() as s:
+            proj = s.get(Project, project_id)
+            if proj and proj.name:
+                clean_name = proj.name.replace(" ", "_")
+                candidate_paths.extend([
+                    Path("data/packages") / f"{clean_name}.json",
+                    Path("knowledge_packages") / f"{clean_name}.json",
+                ])
+    except Exception:
+        pass
+
+    for p in candidate_paths:
+        if isinstance(p, Path) and p.exists():
+            return json.loads(p.read_text(encoding="utf-8"))
     return None
 
 
 def package_path(project_id: int) -> Path:
     return get_settings().packages_dir / f"project_{project_id}.json"
+

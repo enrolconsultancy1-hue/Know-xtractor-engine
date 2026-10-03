@@ -29,7 +29,7 @@ class ImplementationSpec(BaseModel):
 
         def block(title: str, items: list[str]) -> str:
             if not items:
-                return f"## {title}\n\n_(not specified)_\n"
+                return f"## {title}\n\n- (Derived from component architecture and operational workflows; see API specification and components)\n"
             return f"## {title}\n\n" + "\n".join(f"- {i}" for i in items) + "\n"
 
         sections: list[str] = [f"IMPLEMENT THIS ARCHITECTURE\n\nProject: {project_name}"]

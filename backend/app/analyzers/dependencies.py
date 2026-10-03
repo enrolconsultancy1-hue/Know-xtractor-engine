@@ -52,6 +52,34 @@ _PURPOSE_BY_NAME: dict[str, tuple[str, str, str]] = {
     "torch": ("Machine learning", "domain", "major"),
     "pillow": ("Image processing", "domain", "minor"),
     "gunicorn[gevent]": ("WSGI server", "infrastructure", "major"),
+    # Geospatial, 3D Graphics, & Situational Awareness
+    "cesium": ("3D Geospatial & WebGL Globe Engine", "presentation", "critical"),
+    "satellite.js": ("SGP4/SDP4 Satellite Orbit Propagation", "domain", "major"),
+    "hls.js": ("HTTP Live Streaming (HLS) Video Player", "presentation", "major"),
+    "ws": ("WebSocket Client & Server Transport", "integration", "major"),
+    "@mapbox/vector-tile": ("Mapbox Vector Tile (MVT) Decoder", "domain", "major"),
+    "@meri-imperiumi/eccodes-wasm": ("Wasm GRIB / Atmospheric Weather Decoder", "domain", "major"),
+    "pbf": ("Protocol Buffers Binary Decoder", "utility", "minor"),
+    "mgrs": ("Military Grid Reference System Coordinates", "domain", "minor"),
+    "egm96-universal": ("Earth Gravitational Model Geoid Undulation", "domain", "minor"),
+    "@jtarrio/signals": ("Reactive Signals State Management", "application", "major"),
+    "@jtarrio/webrtlsdr": ("WebUSB RTL-SDR Radio Receiver", "integration", "major"),
+    "vite-plugin-cesium": ("Vite Plugin for CesiumJS Assets", "tooling", "minor"),
+    "prettier": ("Code Formatter", "tooling", "minor"),
+    "puppeteer": ("Headless Browser Automation / Testing", "testing", "minor"),
+    "sharp": ("High-performance Image Processing", "utility", "minor"),
+    "three": ("3D WebGL Library", "presentation", "critical"),
+    "leaflet": ("2D Interactive Mapping", "presentation", "critical"),
+    "openlayers": ("High-performance Mapping", "presentation", "critical"),
+    "turf": ("Geospatial Analysis Engine", "domain", "major"),
+    "@turf/turf": ("Geospatial Analysis Engine", "domain", "major"),
+    "proj4": ("Coordinate Projection Transformations", "domain", "major"),
+    "geolib": ("Geographic Distance & Calculations", "domain", "minor"),
+    "socket.io": ("Real-time Bidirectional WebSocket Engine", "integration", "major"),
+    "socket.io-client": ("WebSocket Client", "integration", "major"),
+    "eslint": ("JavaScript / TypeScript Linter", "tooling", "minor"),
+    "nodemon": ("Development Auto-reloading Tool", "tooling", "minor"),
+    "dotenv": ("Environment Configuration Loader", "configuration", "minor"),
 }
 
 
@@ -105,11 +133,38 @@ class DependencyAnalyzer(BaseAnalyzer):
             seen.setdefault(d.name, d)
         return list(seen.values())
 
-    def _classify(self, name: str) -> tuple[str, str, str]:
-        base = name.lower().split("[")[0].split(">")[0].split("=")[0].split("<")[0]
+    def _classify(self, name: str, section: str = "dependencies") -> tuple[str, str, str]:
+        base = name.lower().split("[")[0].split(">")[0].split("=")[0].split("<")[0].strip()
         if base in _PURPOSE_BY_NAME:
             return _PURPOSE_BY_NAME[base]
-        return ("Third-party dependency", "utility", "unknown")
+
+        unscoped = base.split("/")[-1]
+        if unscoped in _PURPOSE_BY_NAME:
+            return _PURPOSE_BY_NAME[unscoped]
+
+        # Pattern-based heuristics
+        if any(t in unscoped for t in ("test", "mock", "jest", "vitest", "cypress", "playwright", "puppeteer", "coverage")):
+            return ("Testing & Quality Assurance", "testing", "minor" if section == "devDependencies" else "major")
+        if any(t in unscoped for t in ("lint", "prettier", "eslint", "format", "husky", "commitlint")):
+            return ("Code Formatting & Quality", "tooling", "minor")
+        if any(t in unscoped for t in ("build", "bundle", "webpack", "vite", "rollup", "esbuild", "babel", "swc", "plugin-")):
+            return ("Build & Bundling Tool", "tooling", "minor" if "plugin" in unscoped else "major")
+        if any(t in unscoped for t in ("cesium", "three", "babylon", "webgl", "globe", "canvas")):
+            return ("3D Graphics & Visualization", "presentation", "critical")
+        if any(t in unscoped for t in ("tile", "geo", "map", "gis", "proj", "coord", "satellite", "grib", "orbit", "elevation", "heights")):
+            return ("Geospatial & Telemetry Processing", "domain", "major")
+        if any(t in unscoped for t in ("stream", "socket", "ws", "hls", "webrtc", "mqtt")):
+            return ("Streaming & Real-time Transport", "integration", "major")
+        if any(t in unscoped for t in ("signal", "redux", "zustand", "mobx", "store", "state")):
+            return ("State Management", "application", "major")
+        if any(t in unscoped for t in ("sql", "db", "mongo", "redis", "postgres", "prisma", "typeorm", "cache")):
+            return ("Database & Cache Client", "persistence", "critical")
+        if any(t in unscoped for t in ("auth", "jwt", "crypto", "bcrypt", "oauth")):
+            return ("Authentication & Security", "security", "critical")
+
+        if section in ("devDependencies", "dev_dependencies", "test"):
+            return ("Third-party dependency", "tooling", "minor")
+        return ("Third-party dependency", "utility", "minor")
 
     def _parse_requirements(self, text: str, path: str) -> list[DependencyInfo]:
         out: list[DependencyInfo] = []
@@ -122,7 +177,7 @@ class DependencyAnalyzer(BaseAnalyzer):
                 continue
             name = m.group(1).lower()
             version = (m.group(2) or "").strip() or None
-            purpose, layer, crit = self._classify(name)
+            purpose, layer, crit = self._classify(name, section="dependencies")
             out.append(DependencyInfo(
                 name=name, version=version, kind=TechnologyKind.LIBRARY,
                 used_by=[path], purpose=purpose, architectural_layer=layer,
@@ -138,7 +193,7 @@ class DependencyAnalyzer(BaseAnalyzer):
             return out
         for section in ("dependencies", "devDependencies"):
             for name, version in (data.get(section) or {}).items():
-                purpose, layer, crit = self._classify(name)
+                purpose, layer, crit = self._classify(name, section=section)
                 out.append(DependencyInfo(
                     name=name, version=str(version), kind=TechnologyKind.LIBRARY,
                     used_by=[path], purpose=purpose, architectural_layer=layer,

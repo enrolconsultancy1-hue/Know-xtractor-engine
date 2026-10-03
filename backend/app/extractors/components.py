@@ -8,6 +8,7 @@ from app.domain.component import Component, ComponentType
 
 _LAYER_BY_PATH: list[tuple[tuple[str, ...], str]] = [
     (("api", "controllers", "routes", "views", "endpoints", "handlers", "routers"), "presentation"),
+    (("providers",), "provider"),
     (("services", "application", "usecases", "use_cases", "biz", "business"), "application"),
     (("domain", "models", "entities", "core", "schema"), "domain"),
     (("repositories", "repository", "dao", "db", "database", "infra", "persistence", "storage"), "persistence"),
@@ -16,9 +17,22 @@ _LAYER_BY_PATH: list[tuple[tuple[str, ...], str]] = [
     (("middleware", "middlewares", "interceptors"), "middleware"),
     (("worker", "workers", "jobs", "tasks", "queue", "celery"), "background"),
     (("cli", "commands", "scripts"), "cli"),
+    (("src", "client", "frontend", "ui"), "client"),
+    (("build", "tools", "pinokio"), "tooling"),
 ]
 
-_ENTRYPOINT_FILES = {"main.py", "app.py", "index.py", "manage.py", "run.py", "wsgi.py", "asgi.py"}
+_ENTRYPOINT_FILES = {
+    "main.py", "app.py", "index.py", "manage.py", "run.py", "wsgi.py", "asgi.py",
+    "index.js", "index.ts", "main.js", "main.ts", "server.js", "server.ts",
+    "local.js",  # gods-eye-view provider registry
+}
+
+# Symbol names that are trivially named or anonymous — skip as noise
+_TRIVIAL_NAMES = {"", "_", "__", "anonymous", "cb", "fn", "handler",
+                   "err", "e", "res", "req", "next", "reject", "resolve"}
+
+# Minimum name length to include a function symbol (avoids `a`, `cb`, etc.)
+_MIN_SYMBOL_NAME_LEN = 3
 
 
 def infer_layer(path: str) -> str:
@@ -64,6 +78,11 @@ class ComponentExtractor:
     def _symbol_components(self) -> list[Component]:
         out: list[Component] = []
         for sym in self.graph.all_symbols():
+            # Filter trivial/noise symbols to keep component list meaningful
+            if sym.name in _TRIVIAL_NAMES:
+                continue
+            if sym.kind == SymbolKind.FUNCTION and len(sym.name) < _MIN_SYMBOL_NAME_LEN:
+                continue
             layer = infer_layer(sym.path)
             ctype = self._component_type(sym)
             purpose = self._symbol_purpose(sym)
@@ -105,6 +124,9 @@ class ComponentExtractor:
         if sym.kind == SymbolKind.COMPONENT:
             return ComponentType.SERVICE
         if sym.kind in (SymbolKind.FUNCTION, SymbolKind.METHOD):
+            # *Proxy() / *Plugin() / *Provider() convention → treat as service
+            if sym.name.endswith(("Proxy", "Plugin", "Provider", "Handler", "Middleware")):
+                return ComponentType.SERVICE
             if any("controller" in d or "route" in d or "api" in d for d in sym.decorators):
                 return ComponentType.API_CONTROLLER
             return ComponentType.FUNCTION
@@ -126,6 +148,13 @@ class ComponentExtractor:
             return sym.docstring.strip().splitlines()[0][:120]
         if any("route" in d or "get" in d or "post" in d for d in sym.decorators):
             return "HTTP endpoint handler"
+        if sym.name.endswith("Proxy"):
+            provider = sym.name[:-5]  # strip 'Proxy'
+            return f"Vite proxy plugin — proxies upstream data for {provider} provider"
+        if sym.name.endswith("Plugin"):
+            return f"Vite plugin — {sym.name}"
+        if sym.name.endswith("Provider"):
+            return f"Data provider — {sym.name}"
         return f"{sym.kind.value} {sym.name}"
 
     @staticmethod
