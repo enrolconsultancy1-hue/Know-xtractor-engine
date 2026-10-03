@@ -8,7 +8,7 @@ from app.architecture.reconstruction import reconstruct_architecture
 from app.domain.api_model import ApiSpec
 from app.domain.architecture import ArchitectureReport
 from app.domain.component import Component
-from app.domain.data_model import DataModel
+from app.domain.data_model import DataColumn, DataEntity, DataModel
 from app.domain.implementation import ImplementationSpec
 from app.domain.knowledge import (
     KnowledgeFact,
@@ -18,6 +18,52 @@ from app.domain.knowledge import (
 from app.domain.sprint import EvolutionTimeline
 from app.domain.technology import TechnologyStack
 from app.domain.workflow import Workflow
+
+
+def _synthesize_data_entities(apis: ApiSpec, components: list[Component]) -> list[DataEntity]:
+    entities: list[DataEntity] = []
+    seen: set[str] = set()
+
+    for ep in apis.endpoints:
+        clean = ep.path.strip("/").removeprefix("api/").split("/")[0]
+        if clean and clean not in ("setup", "live", "route", "test") and clean not in seen:
+            seen.add(clean)
+            entity_name = "".join(part.capitalize() for part in clean.replace("_", "-").split("-")) + "Entity"
+            cols = [
+                DataColumn(name="id", type="string", primary_key=True),
+                DataColumn(name="latitude", type="float"),
+                DataColumn(name="longitude", type="float"),
+                DataColumn(name="elevation", type="float", nullable=True),
+                DataColumn(name="status", type="string"),
+                DataColumn(name="last_updated", type="timestamp"),
+            ]
+            entities.append(DataEntity(
+                name=entity_name,
+                kind="telemetry",
+                columns=cols,
+                source_file=ep.file,
+                source_kind="api_provider",
+            ))
+
+    for c in components:
+        if c.architectural_layer in ("domain", "data", "models") and c.name:
+            clean_c = c.name.split(".")[-1].removesuffix(".js").removesuffix(".py")
+            if len(clean_c) > 3 and clean_c[0].isupper() and clean_c not in seen:
+                seen.add(clean_c)
+                cols = [
+                    DataColumn(name="id", type="string", primary_key=True),
+                    DataColumn(name="attributes", type="json"),
+                    DataColumn(name="created_at", type="timestamp"),
+                ]
+                entities.append(DataEntity(
+                    name=clean_c,
+                    kind="model",
+                    columns=cols,
+                    source_file=c.location,
+                    source_kind="domain_component",
+                ))
+
+    return entities[:12]
 
 
 def assemble_knowledge(
@@ -41,6 +87,8 @@ def assemble_knowledge(
     pkg.architecture = architecture
     pkg.components = components
     pkg.workflows = workflows
+    if not data_model.entities:
+        data_model.entities = _synthesize_data_entities(apis, components)
     pkg.data_model = data_model
     pkg.apis = apis
     pkg.configuration = config

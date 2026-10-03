@@ -126,19 +126,27 @@ export function DataModelDiagram({ entities }: { entities: DataEntity[] }) {
 
 export function LayerDiagram({ layers }: { layers: { name: string; components: string[] }[] }) {
   const w = 900;
-  const lh = 58;
-  const h = layers.length * lh + 30;
+  const lh = 72;
+  const rectH = 58;
+  const h = layers.length * lh + 20;
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="diagram">
-      {layers.map((l, i) => (
-        <g key={l.name}>
-          <rect x={60} y={i * lh + 12} width={w - 120} height={lh - 16} rx={8} fill="#1a2233" stroke="#7c5cff" strokeWidth="1.2" />
-          <text x={80} y={i * lh + 40} fill="#e6ebf5" fontSize="12" fontWeight="bold">{l.name}</text>
-          <text x={80} y={i * lh + 56} fill="#8b96ab" fontSize="10" fontFamily="monospace">
-            {l.components.slice(0, 12).join(", ")}
-          </text>
-        </g>
-      ))}
+      {layers.map((l, i) => {
+        const y = i * lh + 10;
+        const rawComps = l.components.slice(0, 10).join(", ");
+        const compsText = rawComps.length > 100 ? rawComps.slice(0, 97) + "..." : rawComps;
+        return (
+          <g key={l.name}>
+            <rect x={60} y={y} width={w - 120} height={rectH} rx={8} fill="#1a2233" stroke="#7c5cff" strokeWidth="1.2" />
+            <text x={80} y={y + 24} fill="#e6ebf5" fontSize="12" fontWeight="bold">
+              {l.name} <tspan fill="#64748b" fontSize="11" fontWeight="normal">({l.components.length} component{l.components.length === 1 ? "" : "s"})</tspan>
+            </text>
+            <text x={80} y={y + 44} fill="#8b96ab" fontSize="10" fontFamily="monospace">
+              {compsText}
+            </text>
+          </g>
+        );
+      })}
     </svg>
   );
 }
